@@ -1,0 +1,696 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<meta name="version" content="v20260716c-weibo-gen">
+<title>微博养号内容生成器</title>
+<style>
+:root{--c1:#4F46E5;--c1h:#4338CA;--c1l:#EEF2FF;--ok:#10B981;--err:#EF4444;--bg:#F1F5F9;--card:#FFF;--txt:#1E293B;--txt2:#64748B;--bdr:#E2E8F0;--r:12px;--rs:8px;--sh:0 1px 3px rgba(0,0,0,.08);--shm:0 4px 12px rgba(0,0,0,.1);--shl:0 10px 25px rgba(0,0,0,.12);--tr:all .25s ease}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei',sans-serif;background:var(--bg);color:var(--txt);line-height:1.6;min-height:100vh}
+.hdr{background:linear-gradient(135deg,#4F46E5,#7C3AED);color:#fff;padding:24px 20px;text-align:center}
+.hdr h1{font-size:20px;font-weight:700}.hdr p{font-size:13px;opacity:.85;margin-top:4px}
+.sync-badge{display:inline-block;font-size:11px;background:rgba(255,255,255,.2);padding:2px 8px;border-radius:10px;margin-top:6px}
+.sync-badge.synced{color:#fff}
+.ctn{max-width:760px;margin:0 auto;padding:16px 14px 40px}
+.stats{display:flex;gap:10px;margin-bottom:16px}
+.st{flex:1;background:var(--card);border-radius:var(--rs);padding:12px 10px;box-shadow:var(--sh);text-align:center}
+.st-n{font-size:24px;font-weight:700;color:var(--c1);line-height:1.2}
+.st-l{font-size:11px;color:var(--txt2);margin-top:2px}
+.st.warn .st-n{color:var(--err)}
+.card{background:var(--card);border-radius:var(--r);box-shadow:var(--sh);margin-bottom:16px;overflow:hidden}
+.card-h{padding:12px 16px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;user-select:none;border-bottom:1px solid var(--bdr)}
+.card-h h3{font-size:14px;font-weight:600;display:flex;align-items:center;gap:6px}
+.card-tog{font-size:11px;color:var(--txt2);transition:transform .2s}
+.card-tog.open{transform:rotate(180deg)}
+.card-b{padding:16px;display:none}
+.card-b.open{display:block}
+.fr{display:flex;gap:10px;margin-bottom:12px}.fr:last-child{margin-bottom:0}
+.fg{flex:1}.fg.nf{flex:none}
+.fl{display:block;font-size:12px;font-weight:500;color:var(--txt2);margin-bottom:5px}
+.fi,.fs,.fta{width:100%;padding:9px 11px;border:1px solid var(--bdr);border-radius:var(--rs);font-size:13px;color:var(--txt);background:var(--card);transition:var(--tr);font-family:inherit}
+.fi:focus,.fs:focus,.fta:focus{outline:none;border-color:var(--c1);box-shadow:0 0 0 3px rgba(79,70,229,.1)}
+.fi::placeholder,.fta::placeholder{color:#94A3B8}
+.fs{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%2364748B' d='M6 8L1 3h10z'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center;padding-right:28px}
+.fta{resize:vertical;min-height:60px;line-height:1.6}
+.cdis{background:var(--card);border-radius:var(--r);box-shadow:var(--shm);margin-bottom:16px;overflow:hidden}
+.cdis.empty{border:2px dashed var(--bdr);box-shadow:none;background:rgba(255,255,255,.5)}
+.cdis-h{padding:12px 16px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--bdr)}
+.cdis-h h3{font-size:14px;font-weight:600;display:flex;align-items:center;gap:6px}
+.cdis-cnt{font-size:11px;color:var(--txt2);background:var(--c1l);padding:2px 10px;border-radius:20px}
+.cdis-b{padding:20px 16px;min-height:120px;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.cdis-b .emp{color:var(--txt2);font-size:13px;text-align:center}
+.cdis-b .emp .bi{font-size:42px;display:block;margin-bottom:10px}
+.cdis-txt{font-size:14px;line-height:2;color:var(--txt);white-space:pre-wrap;width:100%;padding:0 2px;user-select:text}
+.cdis-txt .para{margin-bottom:14px;display:block}.cdis-txt .para:last-child{margin-bottom:0}
+.cdis-cc{text-align:right;font-size:11px;color:var(--txt2);margin-top:10px;width:100%}
+.ab{display:flex;gap:8px;padding:14px 16px;border-top:1px solid var(--bdr);flex-wrap:wrap}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:5px;padding:10px 16px;border:none;border-radius:var(--rs);font-size:13px;font-weight:500;cursor:pointer;transition:var(--tr);font-family:inherit;white-space:nowrap}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn-p{background:var(--c1);color:#fff;flex:1}
+.btn-p:hover:not(:disabled){background:var(--c1h);box-shadow:var(--shm);transform:translateY(-1px)}
+.btn-g{background:var(--ok);color:#fff;flex:1}
+.btn-g:hover:not(:disabled){background:#059669;box-shadow:var(--shm);transform:translateY(-1px)}
+.btn-o{background:transparent;color:var(--txt2);border:1px solid var(--bdr)}
+.btn-o:hover:not(:disabled){background:#F1F5F9;color:var(--txt)}
+.btn-d{background:transparent;color:var(--err);border:1px solid rgba(239,68,68,.25)}
+.btn-d:hover:not(:disabled){background:rgba(239,68,68,.06)}
+.bb{background:var(--card);border-radius:var(--r);box-shadow:var(--sh);padding:14px 16px;margin-bottom:16px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.bb .bl{font-size:13px;font-weight:500;color:var(--txt);flex-shrink:0}.bb .fs{width:auto;min-width:80px}
+.ldo{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.3);display:flex;align-items:center;justify-content:center;z-index:999;opacity:0;pointer-events:none;transition:opacity .3s}
+.ldo.show{opacity:1;pointer-events:all}
+.ldbx{background:var(--card);border-radius:var(--r);padding:28px 36px;text-align:center;box-shadow:var(--shl)}
+.ldsp{width:32px;height:32px;border:3px solid var(--bdr);border-top-color:var(--c1);border-radius:50%;animation:sp .8s linear infinite;margin:0 auto 14px}
+@keyframes sp{to{transform:rotate(360deg)}}
+.ldt{font-size:13px;color:var(--txt2)}
+.toast{position:fixed;top:16px;right:16px;padding:10px 18px;border-radius:var(--rs);color:#fff;font-size:13px;font-weight:500;z-index:1000;transform:translateX(120%);transition:transform .3s;box-shadow:var(--shm);pointer-events:none;max-width:300px}
+.toast.show{transform:translateX(0)}
+.toast.ok{background:var(--ok)}.toast.er{background:var(--err)}.toast.in{background:var(--c1)}
+.ptm-card{background:var(--card);border-radius:var(--r);box-shadow:var(--sh);margin-bottom:16px;overflow:hidden}
+.ptm-card-h{padding:12px 16px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;user-select:none;border-bottom:1px solid var(--bdr)}
+.ptm-sel{width:100%;padding:9px 11px;border:1px solid var(--bdr);border-radius:var(--rs);font-size:13px;color:var(--txt);background:var(--card);cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%2364748B' d='M6 8L1 3h10z'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center;padding-right:28px;font-family:inherit}
+.ptm-sel:focus{outline:none;border-color:var(--c1);box-shadow:0 0 0 3px rgba(79,70,229,.1)}
+.ptm-ta{width:100%;padding:10px 12px;border:1px solid var(--bdr);border-radius:var(--rs);font-size:13px;color:var(--txt);background:var(--card);resize:vertical;min-height:200px;line-height:1.7;font-family:inherit}
+.ptm-ta:focus{outline:none;border-color:var(--c1);box-shadow:0 0 0 3px rgba(79,70,229,.1)}
+.bw-wrap{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;min-height:32px}
+.bw-tag{display:inline-flex;align-items:center;gap:4px;background:#FEF2F2;color:var(--err);border:1px solid rgba(239,68,68,.2);border-radius:16px;padding:4px 10px;font-size:12px;font-weight:500}
+.bw-tag .bw-rm{cursor:pointer;opacity:.6;font-size:14px;line-height:1}.bw-tag .bw-rm:hover{opacity:1}
+.bw-add{display:flex;gap:6px;margin-bottom:8px}.bw-add .fi{flex:1}
+.bw-hint{font-size:11px;color:var(--txt2);margin-top:4px;line-height:1.5}
+/* API配置新样式 */
+.cfg-row{display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap}
+.cfg-row .fs{flex:1;min-width:200px}
+.cfg-actions{display:flex;gap:6px;flex-wrap:wrap}
+.cfg-actions .btn{flex:none;padding:8px 12px;font-size:12px}
+.url-preview{font-size:11px;color:var(--txt2);background:var(--c1l);padding:8px 10px;border-radius:var(--rs);margin-bottom:12px;word-break:break-all}
+.url-preview strong{color:var(--c1)}
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;align-items:center;justify-content:center;z-index:2000;padding:16px}
+.modal.show{display:flex}
+.modal-bx{background:var(--card);border-radius:var(--r);width:100%;max-width:420px;max-height:80vh;display:flex;flex-direction:column;box-shadow:var(--shl);overflow:hidden}
+.modal-h{padding:14px 16px;border-bottom:1px solid var(--bdr);display:flex;justify-content:space-between;align-items:center}
+.modal-h h4{font-size:14px;font-weight:600}
+.modal-c{flex:1;overflow:auto;padding:14px 16px}
+.modal-f{padding:12px 16px;border-top:1px solid var(--bdr);display:flex;gap:8px;justify-content:flex-end}
+.model-search{width:100%;margin-bottom:12px}
+.model-item{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--bdr);cursor:pointer}
+.model-item:last-child{border-bottom:none}
+.model-item input[type=checkbox]{width:16px;height:16px;accent-color:var(--c1)}
+.model-item span{font-size:13px}
+.model-item small{color:var(--txt2);font-size:11px;margin-left:auto}
+@media(max-width:640px){.fr{flex-direction:column;gap:0}.stats{flex-direction:row!important;gap:6px!important}.bb{flex-direction:column;align-items:stretch}.bb .fs{width:100%;min-width:0}.ab{flex-wrap:wrap}.ab .btn{flex:none;width:calc(50% - 4px);font-size:12px;padding:8px 10px}.st{padding:8px 4px;min-width:0;flex:1}.st-n{font-size:18px!important}.st-l{font-size:10px}.hdr{padding:18px 16px}.hdr h1{font-size:17px}.ctn{padding:12px 10px 30px}.card-b{padding:14px}.ptm-ta{min-height:150px}.cfg-row{flex-direction:column;align-items:stretch}.cfg-row .fs{width:100%}.cfg-actions{width:100%;justify-content:space-between}.cfg-actions .btn{flex:1}}
+/* 多设备：管理后台仅管理员可见 */
+.admin-only{display:none}
+.hdr-actions{margin-top:8px}
+.admin-btn{display:inline-block;font-size:11px;background:rgba(255,255,255,.22);color:#fff;border:1px solid rgba(255,255,255,.45);padding:4px 14px;border-radius:14px;cursor:pointer;font-family:inherit;transition:var(--tr)}
+.admin-btn:hover{background:rgba(255,255,255,.35)}
+.sync-card .url-preview{margin-bottom:10px}
+</style>
+</head>
+<body>
+<div class="hdr"><h1>📝 微博养号内容生成器</h1><p>真人口吻 · 科普原创 · 一键复制</p><div class="hdr-actions"><button class="admin-btn" id="admin-toggle" onclick="toggleAdmin()">🔓 管理员登录</button></div><div class="sync-badge synced" id="sync-badge">💾 本地已保存</div></div>
+<div class="ctn">
+  <div class="stats">
+    <div class="st" id="st-pool"><div class="st-n" id="st-pool-n">0</div><div class="st-l">缓存剩余</div></div>
+    <div class="st" id="st-used"><div class="st-n" id="st-used-n">0</div><div class="st-l">已使用</div></div>
+    <div class="st"><div class="st-n" id="st-status-n">-</div><div class="st-l">状态</div></div>
+  </div>
+
+  <div class="card admin-only"><div class="card-h" onclick="togCard('api')"><h3>🔗 API 配置</h3><span class="card-tog" id="api-tog">▼</span></div><div class="card-b" id="api-body">
+    <div class="cfg-row">
+      <select class="fs" id="cfg-sel" onchange="switchCfg()"></select>
+      <div class="cfg-actions">
+        <button class="btn btn-p" onclick="addCfg()">➕ 新建</button>
+        <button class="btn btn-o" onclick="renameCfg()">✏️ 重命名</button>
+        <button class="btn btn-d" onclick="deleteCfg()">🗑️</button>
+        <button class="btn btn-o" onclick="setDefaultCfg()">⭐ 默认</button>
+        <button class="btn btn-p" onclick="testCfg()">🔗 测试</button>
+      </div>
+    </div>
+    <div class="fr"><div class="fg"><label class="fl">配置名称</label><input class="fi" id="cfg-name" placeholder="例如：ywcode 中转" /></div></div>
+    <div class="fr"><div class="fg"><label class="fl">API 基础 URL</label><input class="fi" id="cfg-url" placeholder="https://api.ywcode.top/v1" /></div></div>
+    <div class="url-preview">实际请求地址：<strong id="cfg-real-url">-</strong><br><small>系统会在基础 URL 后自动补全 /chat/completions</small></div>
+    <div class="fr"><div class="fg"><label class="fl">API Key</label><input class="fi" id="cfg-key" type="password" placeholder="sk-..." /></div></div>
+    <div class="fr"><div class="fg"><label class="fl">模型名称 <small style="color:#94A3B8;font-weight:400">多个用逗号或换行分隔</small></label><textarea class="fta" id="cfg-models" rows="2" placeholder="gpt-5.4, gpt-5.5, gpt-5.6-luna"></textarea></div></div>
+    <div class="fr"><div class="fg" style="display:flex;gap:6px;flex-wrap:wrap;"><button class="btn btn-o" onclick="openModelPicker()" style="flex:none;">📋 从预置模型选择</button><button class="btn btn-p" onclick="fetchModels()" style="flex:none;">🌐 获取模型</button><button class="btn btn-o" onclick="clearModelInput()" style="flex:none;">清空</button></div><div class="fg nf" style="width:100px;"><label class="fl">Temperature</label><input class="fi" id="cfg-temp" type="number" min="0" max="2" step="0.1" value="1.3" /></div></div>
+    <div class="url-preview" id="fetch-hint" style="display:none">提示：点击「🌐 获取模型」会自动请求 <strong id="fetch-url-preview">-</strong> 拉取该中转站支持的模型列表。</div>
+    <div class="fr" style="margin-top:10px;"><div class="fg" style="display:flex;gap:6px;flex-wrap:wrap;"><button class="btn btn-p" onclick="saveCfg()">💾 保存当前配置</button></div></div>
+  </div></div>
+
+  <div class="card admin-only"><div class="card-h" onclick="togCard('ptm')"><h3>📋 提示词模板</h3><span class="card-tog" id="ptm-tog">▼</span></div><div class="card-b" id="ptm-body">
+    <div style="margin-bottom:12px;"><label class="fl">选择模板</label><select class="ptm-sel" id="ptm-sel"></select></div>
+    <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px;">
+      <button class="btn btn-o" id="ptm-add-btn" style="flex:1;min-width:0;padding:10px 8px;font-size:12px;">➕ 新增</button>
+      <button class="btn btn-o" id="ptm-rename-btn" style="flex:1;min-width:0;padding:10px 8px;font-size:12px;">✏️ 重命名</button>
+      <button class="btn btn-o" id="ptm-delete-btn" style="flex:1;min-width:0;padding:10px 8px;font-size:12px;">🗑️ 删除</button>
+      <button class="btn btn-p" id="ptm-default-btn" style="flex:1;min-width:0;padding:10px 8px;font-size:12px;">⭐ 设默认</button>
+    </div>
+    <div style="margin-bottom:10px;"><label class="fl">提示词内容 <span style="color:#94A3B8;font-weight:400">（定义写作风格和规则）</span></label><textarea class="ptm-ta" id="ptm-ta" rows="14"></textarea></div>
+    <div style="display:flex;gap:8px;"><button class="btn btn-o" id="ptm-reset-btn" style="flex:1;padding:10px;">↩️ 恢复默认</button><button class="btn btn-p" id="ptm-save-btn" style="flex:1;padding:10px;">💾 保存模板</button></div>
+  </div></div>
+
+  <div class="card admin-only"><div class="card-h" onclick="togCard('bw')"><h3>🚫 禁用词名单 <span style="font-size:11px;color:var(--txt2);font-weight:400;margin-left:4px;" id="bw-count-badge"></span></h3><span class="card-tog" id="bw-tog">▼</span></div><div class="card-b" id="bw-body">
+    <div class="bw-add"><input class="fi" id="bw-input" placeholder="输入禁用词，回车或点击添加" onkeydown="if(event.key==='Enter')bwAdd()" /><button class="btn btn-p" onclick="bwAdd()" style="flex:none;">➕ 添加</button></div>
+    <div class="bw-wrap" id="bw-list"></div>
+    <div class="bw-hint">以上词汇在生成内容时会被禁止使用。添加/修改后自动保存到本地。</div>
+    <div style="display:flex;gap:6px;margin-top:10px;"><button class="btn btn-p" onclick="bwSave()" style="flex:none;">💾 保存</button><button class="btn btn-d" onclick="bwClear()" style="flex:none;">🗑️ 清空</button><button class="btn btn-o" onclick="bwReset()" style="flex:none;">↩️ 恢复默认</button></div>
+  </div></div>
+
+  <div class="bb admin-only"><span class="bl">📦 批量生成：</span><select class="fs" id="manual-count" style="width:auto;min-width:80px;"><option value="5">5</option><option value="10">10</option><option value="20" selected>20</option><option value="30">30</option><option value="50">50</option><option value="100">100</option><option value="200">200</option><option value="300">300</option></select><button class="btn btn-p" onclick="batchGen()" id="btn-gen">⚡ 生成</button><button class="btn btn-d" onclick="clearPool()">🗑️ 清空</button></div>
+
+  <div class="card admin-only" id="sync-card"><div class="card-h" onclick="togCard('sync')"><h3>☁️ 云端同步</h3><span class="card-tog" id="sync-tog">▼</span></div><div class="card-b" id="sync-body">
+    <div class="url-preview">共享内容存于 GitHub 仓库 <strong>jiesenmax-lang/weibo-gen</strong> 的 <strong>pool.json</strong>，其他手机打开本页会自动拉取展示。</div>
+    <div class="fr"><div class="fg"><label class="fl">GitHub Token <small style="color:#94A3B8;font-weight:400">仅写入云端时需要，留空则只能只读</small></label><input class="fi" id="gh-token" type="password" placeholder="github_pat_..." /></div></div>
+    <div class="fr"><div class="fg"><label class="fl">管理密码 <small style="color:#94A3B8;font-weight:400">其他手机需输入此密码才看得到管理后台</small></label><input class="fi" id="admin-pw" type="password" placeholder="默认 jiesen" onblur="saveAdminPw()" /></div></div>
+    <div class="cfg-row">
+      <button class="btn btn-p" onclick="syncPush()">☁️ 同步到云端</button>
+      <button class="btn btn-o" onclick="syncPull()">⬇️ 从云端拉取</button>
+      <button class="btn btn-o" onclick="refreshCloud()">🔄 刷新</button>
+    </div>
+    <div class="url-preview" id="cloud-status" style="margin-bottom:0">云端状态：未同步</div>
+  </div></div>
+
+  <div class="cdis" id="cdis"><div class="cdis-h"><h3>📄 当前内容</h3><span class="cdis-cnt" id="cdis-cnt">0 / 0</span></div><div class="cdis-b" id="cdis-body"><div class="emp" id="emp-msg"><span class="bi">📭</span><div>库存为空</div></div><div class="cdis-txt" id="cdis-txt" style="display:none;"></div><div class="cdis-cc" id="cdis-cc" style="display:none;"></div></div><div class="ab" id="ab" style="display:none;"><button class="btn btn-o" onclick="showPrev()" id="btn-prev">⬅ 上一条</button><button class="btn btn-g" onclick="copyOnly()" id="btn-copy">📋 复制</button><button class="btn btn-o" onclick="showNext()" id="btn-next">下一条 ➡</button><button class="btn btn-d" onclick="delCur()" id="btn-del">🗑️</button></div></div>
+</div>
+
+<div class="modal" id="model-modal">
+  <div class="modal-bx">
+    <div class="modal-h"><h4>选择模型</h4><button class="btn btn-o" onclick="closeModelPicker()" style="padding:4px 10px;font-size:12px;">关闭</button></div>
+    <div class="modal-c">
+      <input class="fi model-search" id="model-search" placeholder="搜索模型" oninput="filterModels()" />
+      <div id="model-list"></div>
+    </div>
+    <div class="modal-f"><button class="btn btn-o" onclick="closeModelPicker()">取消</button><button class="btn btn-p" onclick="confirmModelPicker()">确定</button></div>
+  </div>
+</div>
+
+<div class="modal" id="fetch-models-modal">
+  <div class="modal-bx">
+    <div class="modal-h"><h4>选择要添加的模型</h4><button class="btn btn-o" onclick="closeFetchModels()" style="padding:4px 10px;font-size:12px;">关闭</button></div>
+    <div class="modal-c">
+      <div id="fetch-model-status" style="font-size:12px;color:var(--txt2);margin-bottom:10px;display:none;"></div>
+      <input class="fi model-search" id="fetch-model-search" placeholder="搜索模型" oninput="filterFetchedModels()" />
+      <div id="fetch-model-list"></div>
+    </div>
+    <div class="modal-f"><button class="btn btn-o" onclick="closeFetchModels()">取消</button><button class="btn btn-p" onclick="confirmFetchedModels()">添加选中</button></div>
+  </div>
+</div>
+
+<div class="ldo" id="ldo"><div class="ldbx"><div class="ldsp"></div><div class="ldt" id="ldt">生成中...</div></div></div>
+<div class="toast" id="toast"></div>
+
+<script>
+// ==================== 存储键名 ====================
+if(typeof structuredClone!=='function'){structuredClone=function(o){return JSON.parse(JSON.stringify(o))}}
+const SK={api:'wbg_api_v3',cfg:'wbg_cfg',pool:'wbg_pool',used:'wbg_used',idx:'wbg_idx',bw:'wbg_bw_v2',ptm:'wbg_ptm_v2',ptmAct:'wbg_ptm_act_v2',ghToken:'wbg_gh_token',adminSession:'wbg_admin_session',adminPw:'wbg_admin_pw'};
+let isGen=false;
+let bwWords=[];
+const ADMIN_PW_DEFAULT='jiesen';
+const CLOUD={repo:'jiesenmax-lang/weibo-gen',path:'pool.json'};
+let cloudPool=[];let cloudLoaded=false;let cloudIdx=0;
+
+// ==================== 预置数据 ====================
+const PRESET_PROVIDERS=[
+  {id:'openai',name:'OpenAI 官方 / 中转',models:['gpt-5.5','gpt-5.4','gpt-4o','gpt-4o-mini','gpt-4-turbo','gpt-3.5-turbo']},
+  {id:'mimo',name:'小米 MiMo',models:['mimo-v2.5-flash','mimo-v2.5','mimo-v2.5-pro']},
+  {id:'deepseek',name:'DeepSeek',models:['deepseek-v4-flash','deepseek-v4-pro','deepseek-chat','deepseek-reasoner']},
+  {id:'qwen',name:'通义千问',models:['qwen3-max','qwen-plus','qwen-turbo','qwen-long']},
+  {id:'zhipu',name:'智谱AI',models:['glm-5','glm-4-plus','glm-4-flash']},
+  {id:'moonshot',name:'Moonshot',models:['kimi-k2.6','moonshot-v1-128k']},
+  {id:'custom',name:'自定义中转站',models:[]}
+];
+const DEFAULT_API_CONFIG={
+  configs:[
+    {id:'cfg_default',name:'小米 MiMo（Token Plan）',baseUrl:'https://token-plan-cn.xiaomimimo.com/v1',key:'',models:['mimo-v2.5-pro'],default:true}
+  ],
+  activeId:'cfg_default'
+};
+const DEFAULT_PROMPTS=[
+  {id:'tpl-1',name:'科普混合（默认）',isDefault:true,content:`你在运营一个科学科普类型微博账号，内容方向主要是分享生活百科、动物植物奥秘、天文知识、文博科普等。
+
+请随机提供一条这些方面的内容，字数250-300字，字数必须限定死，不能乱写几百字。内容风格要像真人口吻，符合微博阅读风格，让人看不出来是AI写的。
+
+【硬性要求——每条都必须严格遵守】
+1. 每条内容的汉字数量（不含标点和空格）必须恰好在 250-300 字之间，逐字计数，多一个字少一个字都不行
+2. 每条内容必须分成恰好 2-3 个自然段落，段落之间空一行
+3. 每个段落 2-4 句话，绝不能出现一整段超长文字
+4. 不带任何话题标签（#xxx#）、emoji、表情符号、特殊符号
+5. 纯文字科普，不引用来源和参考文献
+
+【选题方向——随机混合】
+生活冷知识、动物科普、植物科普、天文知识、文博科普
+
+【风格要求——最重要，直接决定内容质量】
+- 像一个真人在发微博，完全不像AI写的
+- 禁止使用下方「禁用词名单」中的任何词汇和句式
+- 开头方式必须多样化，每次不同，从以下方式随机选用：
+  · 抛出一个反直觉的事实
+  · 用一个具体场景或画面引入
+  · 直接说结论再展开
+  · 讲一个真实案例或故事
+  · 反问一个冷门问题
+  · 用数据或年份切入
+  · 从一个生活细节切入
+- 语气要像朋友聊天，可以口语化，不要教科书腔
+- 可以适当用「话说」「讲真」「你们敢信」「说实话」「我看到一个数据」这类真人表达
+- 三段之间的逻辑要自然过渡，不要生硬转折
+- 每条内容的写法、句式、开头都要不同，避免千篇一律`},
+  {id:'tpl-2',name:'生活冷知识',isDefault:false,content:`你在运营一个科学科普类型微博账号，内容方向主要是分享生活百科、动物植物奥秘、天文知识、文博科普等。
+
+请随机提供一条这些方面的内容，字数250-300字，字数必须限定死，不能乱写几百字。内容风格要像真人口吻，符合微博阅读风格，让人看不出来是AI写的。
+
+【硬性要求】
+1. 每条内容 250-300 个汉字（纯文字，不含标点空格），严格控制
+2. 分 2-3 个自然段落，每段 2-4 句话，段落之间空一行
+3. 不带话题标签、emoji、特殊符号
+4. 读起来像真人在发微博，不像AI
+
+【选题方向】生活冷知识、日常科学原理、生活小窍门
+
+【风格】禁止使用「禁用词名单」中的词汇。开头多样化。语气口语化，像朋友聊天。每条写法要不同，避免千篇一律。`},
+  {id:'tpl-3',name:'动物科普',isDefault:false,content:`你在运营一个科学科普类型微博账号，内容方向主要是分享生活百科、动物植物奥秘、天文知识、文博科普等。
+
+请随机提供一条这些方面的内容，字数250-300字，字数必须限定死，不能乱写几百字。内容风格要像真人口吻，符合微博阅读风格，让人看不出来是AI写的。
+
+【硬性要求】
+1. 每条内容 250-300 个汉字（纯文字，不含标点空格），严格控制
+2. 分 2-3 个自然段落，每段 2-4 句话，段落之间空一行
+3. 不带话题标签、emoji、特殊符号
+4. 读起来像真人在发微博，不像AI
+
+【选题方向】动物科普、动物冷知识、动物行为解读、濒危物种故事
+
+【风格】禁止使用「禁用词名单」中的词汇。开头多样化。语气口语化，像朋友聊天。每条写法要不同，避免千篇一律。`},
+  {id:'tpl-4',name:'植物科普',isDefault:false,content:`你在运营一个科学科普类型微博账号，内容方向主要是分享生活百科、动物植物奥秘、天文知识、文博科普等。
+
+请随机提供一条这些方面的内容，字数250-300字，字数必须限定死，不能乱写几百字。内容风格要像真人口吻，符合微博阅读风格，让人看不出来是AI写的。
+
+【硬性要求】
+1. 每条内容 250-300 个汉字（纯文字，不含标点空格），严格控制
+2. 分 2-3 个自然段落，每段 2-4 句话，段落之间空一行
+3. 不带话题标签、emoji、特殊符号
+4. 读起来像真人在发微博，不像AI
+
+【选题方向】植物科普、植物冷知识、奇特植物、植物与人类的关系
+
+【风格】禁止使用「禁用词名单」中的词汇。开头多样化。语气口语化，像朋友聊天。每条写法要不同，避免千篇一律。`},
+  {id:'tpl-5',name:'天文知识',isDefault:false,content:`你在运营一个科学科普类型微博账号，内容方向主要是分享生活百科、动物植物奥秘、天文知识、文博科普等。
+
+请随机提供一条这些方面的内容，字数250-300字，字数必须限定死，不能乱写几百字。内容风格要像真人口吻，符合微博阅读风格，让人看不出来是AI写的。
+
+【硬性要求】
+1. 每条内容 250-300 个汉字（纯文字，不含标点空格），严格控制
+2. 分 2-3 个自然段落，每段 2-4 句话，段落之间空一行
+3. 不带话题标签、emoji、特殊符号
+4. 读起来像真人在发微博，不像AI
+
+【选题方向】天文知识、宇宙奥秘、天体现象、星座故事
+
+【风格】禁止使用「禁用词名单」中的词汇。开头多样化。语气口语化，像朋友聊天。每条写法要不同，避免千篇一律。`},
+  {id:'tpl-6',name:'文博科普',isDefault:false,content:`你在运营一个科学科普类型微博账号，内容方向主要是分享生活百科、动物植物奥秘、天文知识、文博科普等。
+
+请随机提供一条这些方面的内容，字数250-300字，字数必须限定死，不能乱写几百字。内容风格要像真人口吻，符合微博阅读风格，让人看不出来是AI写的。
+
+【硬性要求】
+1. 每条内容 250-300 个汉字（纯文字，不含标点空格），严格控制
+2. 分 2-3 个自然段落，每段 2-4 句话，段落之间空一行
+3. 不带话题标签、emoji、特殊符号
+4. 读起来像真人在发微博，不像AI
+
+【选题方向】文博科普、文物背后的故事、传统文化冷知识、博物馆里的秘密
+
+【风格】禁止使用「禁用词名单」中的词汇。开头多样化。语气口语化，像朋友聊天。每条写法要不同，避免千篇一律。`}
+];
+const DEFAULT_BW=['你知道吗','你有没有想过','你是否','让我们来看看','今天给大家分享','其实','其实你知道吗','有没有发现','众所周知','不得不说','说到','值得一提的是','不禁让人','不难发现','接下来就让我们','接下来给大家','接下来就来','接下来一起','下面就来','下面给大家','下面就让我们','不妨一起来','一起来看看','一起来了解一下','一起来聊聊','相信很多人','相信大家都','相信大家都知道','相信你一定','在日常生活中','在我们的日常生活中','在很多人看来','令人惊讶的是','令人意想不到的是','让人不禁','不知道大家有没有','不知道你们有没有','不知道你有没有','提到','说起','谈到','聊到','提起','说起这个','今天就来聊聊','今天就来和大家','今天和大家聊聊','今天和大家说说','你可能不知道','你可能不了解','你可能想不到','很多人可能不知道','很多人可能不了解','很多人可能想不到','有趣的是','有意思的是','好玩的是','更有趣的是','更神奇的是','更让人惊讶的是','更厉害的是','更绝的是','更离谱的是','那么问题来了','说到这里','话不多说','废话不多说','总之','总而言之','总的来说','综合来看','由此可见','好了','好啦','好了好了','言归正传','首先','其次','最后','第一','第二','第三','怎么样','是不是','对不对','有没有','有没有发现','科普一下','涨知识了','学到了','冷知识来了','涨姿势','每天学一点','每天一个小知识','每天一个冷知识','小科普','小知识','小技巧','小妙招','小窍门','赶紧收藏','赶紧转发','快收藏','快转发','赶紧保存','建议收藏','建议转发','建议保存','建议大家','强烈建议','一定要看','一定要知道','一定要了解','一定要看完','学起来','用起来','做起来'];
+
+// ==================== 通用工具 ====================
+function escH(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
+function toast(m,t){const e=document.getElementById('toast');e.textContent=m;e.className='toast '+t+' show';setTimeout(()=>e.classList.remove('show'),3000)}
+function showLd(t){document.getElementById('ldt').textContent=t||'加载中...';document.getElementById('ldo').classList.add('show')}
+function hideLd(){document.getElementById('ldo').classList.remove('show')}
+function togCard(s,force){const b=document.getElementById(s+'-body'),t=document.getElementById(s+'-tog');if(force!==undefined){if(force){b.classList.add('open');t.classList.add('open')}else{b.classList.remove('open');t.classList.remove('open')}}else{b.classList.toggle('open');t.classList.toggle('open')}}
+function genId(prefix){return prefix+'_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,6)}
+function countChinese(s){return (s||'').replace(/[^\u4e00-\u9fff]/g,'').length}
+
+// ==================== API 配置管理 ====================
+function loadApiConfigs(){try{const raw=localStorage.getItem(SK.api);if(!raw)return structuredClone(DEFAULT_API_CONFIG);const d=JSON.parse(raw);if(!d.configs||!Array.isArray(d.configs)||d.configs.length===0)return structuredClone(DEFAULT_API_CONFIG);return d}catch{return structuredClone(DEFAULT_API_CONFIG)}}
+function saveApiConfigs(d){localStorage.setItem(SK.api,JSON.stringify(d))}
+function getActiveCfg(){const d=loadApiConfigs();let c=d.configs.find(x=>x.id===d.activeId);if(!c)c=d.configs.find(x=>x.default)||d.configs[0];return c}
+function getChatUrl(baseUrl){if(!baseUrl)return'';let u=baseUrl.trim();if(!u)return'';if(u.endsWith('#'))return u.slice(0,-1);if(!/\/chat\/completions$/i.test(u))u=u.replace(/\/$/,'')+'/chat/completions';return u}
+function renderCfgSelect(){const d=loadApiConfigs();const sel=document.getElementById('cfg-sel');sel.innerHTML=d.configs.map(c=>`<option value="${c.id}">${c.name}${c.id===d.activeId?' ✓':''}</option>`).join('');sel.value=d.activeId||'';}
+function fillCfgForm(){const c=getActiveCfg();if(!c)return;document.getElementById('cfg-name').value=c.name||'';document.getElementById('cfg-url').value=c.baseUrl||'';document.getElementById('cfg-key').value=c.key||'';document.getElementById('cfg-models').value=(c.models||[]).join(', ');document.getElementById('cfg-temp').value=(c.temp!==undefined?c.temp:1.3);updateRealUrl();}
+function updateRealUrl(){const u=getChatUrl(document.getElementById('cfg-url').value);document.getElementById('cfg-real-url').textContent=u||'-';const hint=document.getElementById('fetch-hint');if(hint){const val=document.getElementById('cfg-url').value.trim();hint.style.display=val?'block':'none';if(val)document.getElementById('fetch-url-preview').textContent=getModelsUrl(val);}}
+function switchCfg(){const id=document.getElementById('cfg-sel').value;const d=loadApiConfigs();d.activeId=id;saveApiConfigs(d);fillCfgForm();renderCfgSelect();toast('已切换配置','ok')}
+function saveCfg(){const d=loadApiConfigs();const c=d.configs.find(x=>x.id===d.activeId);if(!c){toast('请先新建配置','er');return}const name=document.getElementById('cfg-name').value.trim();const baseUrl=document.getElementById('cfg-url').value.trim();const key=document.getElementById('cfg-key').value.trim();const models=document.getElementById('cfg-models').value.split(/[,，\n]+/).map(s=>s.trim()).filter(Boolean);const temp=parseFloat(document.getElementById('cfg-temp').value)||1.3;if(!name||!baseUrl){toast('名称和基础 URL 不能为空','er');return}if(models.length===0){toast('至少填写一个模型名称','er');return}c.name=name;c.baseUrl=baseUrl;c.key=key;c.models=models;c.temp=temp;saveApiConfigs(d);renderCfgSelect();toast('配置已保存','ok')}
+function addCfg(){const n=prompt('输入新配置名称：');if(!n)return;const d=loadApiConfigs();const id=genId('cfg');d.configs.push({id,name:n,baseUrl:'',key:'',models:[],temp:1.3});d.activeId=id;saveApiConfigs(d);renderCfgSelect();fillCfgForm();toast('已创建配置','ok')}
+function renameCfg(){const d=loadApiConfigs();const c=d.configs.find(x=>x.id===d.activeId);if(!c)return;const n=prompt('输入新名称：',c.name);if(!n)return;c.name=n;saveApiConfigs(d);renderCfgSelect();toast('已重命名','ok')}
+function deleteCfg(){const d=loadApiConfigs();if(d.configs.length<=1){toast('至少保留一个配置','er');return}const c=d.configs.find(x=>x.id===d.activeId);if(!c)return;if(!confirm('确定删除「'+c.name+'」？'))return;d.configs=d.configs.filter(x=>x.id!==c.id);d.activeId=d.configs[0].id;saveApiConfigs(d);renderCfgSelect();fillCfgForm();toast('已删除','in')}
+function setDefaultCfg(){const d=loadApiConfigs();const c=d.configs.find(x=>x.id===d.activeId);if(!c)return;d.configs.forEach(x=>x.default=(x.id===c.id));saveApiConfigs(d);renderCfgSelect();toast('已设为默认配置','ok')}
+async function testCfg(){saveCfg();const c=getActiveCfg();if(!c||!c.key||!c.baseUrl){toast('请填写 API Key 和基础 URL','er');return}const url=getChatUrl(c.baseUrl);showLd('测试中...');try{const r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+c.key},body:JSON.stringify({model:c.models[0],messages:[{role:'user',content:'hi'}],max_tokens:5,stream:false})});hideLd();r.ok?toast('连接成功！','ok'):toast('失败：'+r.status,'er')}catch(e){hideLd();toast('错误：'+e.message,'er')}}
+
+// ==================== 模型选择弹窗 ====================
+let selectedModelsForPicker=[];
+function openModelPicker(){const current=document.getElementById('cfg-models').value.split(/[,，\n]+/).map(s=>s.trim()).filter(Boolean);selectedModelsForPicker=[...current];const list=document.getElementById('model-list');list.innerHTML='';const all=[];PRESET_PROVIDERS.forEach(p=>p.models.forEach(m=>{if(!all.includes(m))all.push(m)}));all.sort();list.innerHTML=all.map(m=>{
+  const checked=selectedModelsForPicker.includes(m)?'checked':'';
+  return `<div class="model-item" onclick="toggleModel('${m}')"><input type="checkbox" ${checked} onclick="event.stopPropagation();toggleModel('${m}')" id="mp-${m}"><span>${escH(m)}</span></div>`;
+}).join('');document.getElementById('model-search').value='';document.getElementById('model-modal').classList.add('show');}
+function closeModelPicker(){document.getElementById('model-modal').classList.remove('show')}
+function toggleModel(m){const idx=selectedModelsForPicker.indexOf(m);if(idx>=0)selectedModelsForPicker.splice(idx,1);else selectedModelsForPicker.push(m);const cb=document.getElementById('mp-'+m);if(cb)cb.checked=idx<0;}
+function confirmModelPicker(){document.getElementById('cfg-models').value=selectedModelsForPicker.join(', ');closeModelPicker()}
+function clearModelInput(){document.getElementById('cfg-models').value=''}
+function filterModels(){const q=document.getElementById('model-search').value.trim().toLowerCase();document.querySelectorAll('.model-item').forEach(el=>{el.style.display=el.textContent.toLowerCase().includes(q)?'':'none'})}
+
+// ==================== 自动获取模型列表 ====================
+let fetchedModelsList=[];      // 接口返回的全部模型 id
+let selectedFetchedModels=[];  // 当前勾选的模型 id
+function getModelsUrl(baseUrl){
+  if(!baseUrl)return'';
+  let u=baseUrl.trim().replace(/\/$/,'');
+  return u+'/models';
+}
+async function fetchModels(){
+  const url=document.getElementById('cfg-url').value.trim();
+  const key=document.getElementById('cfg-key').value.trim();
+  if(!url){toast('请先填写 API 基础 URL','er');return}
+  if(!key){toast('请先填写 API Key','er');return}
+  const modelsUrl=getModelsUrl(url);
+  document.getElementById('fetch-url-preview').textContent=modelsUrl;
+  showLd('正在获取模型列表...');
+  try{
+    const r=await fetch(modelsUrl,{headers:{'Authorization':'Bearer '+key}});
+    hideLd();
+    if(!r.ok){toast('获取失败（HTTP '+r.status+'）：该中转站可能不支持 /models 接口，请手动填写','er');return}
+    const data=await r.json();
+    let ids=[];
+    if(Array.isArray(data)){ids=data.map(x=>typeof x==='string'?x:(x.id||x.name||''))}
+    else if(data&&Array.isArray(data.data)){ids=data.data.map(x=>typeof x==='string'?x:(x.id||x.name||''))}
+    else if(data&&Array.isArray(data.models)){ids=data.models.map(x=>typeof x==='string'?x:(x.id||x.name||''))}
+    ids=ids.map(s=>String(s).trim()).filter(Boolean);
+    if(ids.length===0){toast('接口未返回任何模型，请手动填写','er');return}
+    // 去重（保留首次出现顺序）
+    const seen=new Set();fetchedModelsList=ids.filter(id=>{if(seen.has(id))return false;seen.add(id);return true});
+    const existing=document.getElementById('cfg-models').value.split(/[,，\n]+/).map(s=>s.trim()).filter(Boolean);
+    selectedFetchedModels=fetchedModelsList.filter(id=>existing.includes(id));
+    renderFetchedModels();
+    document.getElementById('fetch-model-status').style.display='none';
+    document.getElementById('fetch-model-search').value='';
+    document.getElementById('fetch-models-modal').classList.add('show');
+  }catch(e){
+    hideLd();
+    toast('获取失败：'+e.message+'（多数情况是浏览器跨域 CORS 限制，可改用预置选择或手动填写）','er');
+  }
+}
+function renderFetchedModels(){
+  const list=document.getElementById('fetch-model-list');
+  if(fetchedModelsList.length===0){list.innerHTML='<div style="font-size:12px;color:var(--txt2);padding:12px 0;">没有可添加的模型</div>';return}
+  list.innerHTML=fetchedModelsList.map((m,i)=>{
+    const checked=selectedFetchedModels.includes(m)?'checked':'';
+    return `<div class="model-item" onclick="toggleFetchedModel(${i})"><input type="checkbox" ${checked} onclick="event.stopPropagation();toggleFetchedModel(${i})" id="fm-${i}"><span>${escH(m)}</span></div>`;
+  }).join('');
+}
+function toggleFetchedModel(i){
+  const m=fetchedModelsList[i];
+  const idx=selectedFetchedModels.indexOf(m);
+  if(idx>=0)selectedFetchedModels.splice(idx,1);else selectedFetchedModels.push(m);
+  const cb=document.getElementById('fm-'+i);if(cb)cb.checked=idx<0;
+}
+function confirmFetchedModels(){
+  const existing=document.getElementById('cfg-models').value.split(/[,，\n]+/).map(s=>s.trim()).filter(Boolean);
+  const merged=[...existing];
+  selectedFetchedModels.forEach(m=>{if(!merged.includes(m))merged.push(m)});
+  document.getElementById('cfg-models').value=merged.join(', ');
+  closeFetchModels();
+  toast('已添加 '+selectedFetchedModels.length+' 个模型到当前配置','ok');
+}
+function closeFetchModels(){document.getElementById('fetch-models-modal').classList.remove('show')}
+function filterFetchedModels(){const q=document.getElementById('fetch-model-search').value.trim().toLowerCase();document.querySelectorAll('#fetch-model-list .model-item').forEach(el=>{el.style.display=el.textContent.toLowerCase().includes(q)?'':'none'})}
+
+// ==================== 提示词模板 ====================
+function ptmGetAll(){try{const raw=localStorage.getItem(SK.ptm);if(!raw)return null;return JSON.parse(raw)}catch{return null}}
+function ptmSaveAll(arr){localStorage.setItem(SK.ptm,JSON.stringify(arr))}
+function ptmGetActiveId(){return localStorage.getItem(SK.ptmAct)||''}
+function ptmSetActiveId(id){localStorage.setItem(SK.ptmAct,id)}
+function ptmLoadDefaults(){if(ptmGetAll())return;ptmSaveAll(structuredClone(DEFAULT_PROMPTS));ptmSetActiveId(DEFAULT_PROMPTS[0].id)}
+function ptmRender(){
+  const arr=ptmGetAll()||[];const sel=document.getElementById('ptm-sel');const ta=document.getElementById('ptm-ta');
+  if(!sel||!ta)return;sel.innerHTML=arr.map(t=>`<option value="${t.id}">${escH(t.name)}${t.isDefault?' ⭐':''}</option>`).join('');
+  const aid=ptmGetActiveId()||arr[0]?.id||'';if(aid){sel.value=aid;const t=arr.find(x=>x.id===aid);if(t)ta.value=t.content||'';}
+}
+function ptmSwitch(){const sid=document.getElementById('ptm-sel').value;ptmSetActiveId(sid);const arr=ptmGetAll()||[];const t=arr.find(x=>x.id===sid);document.getElementById('ptm-ta').value=t?t.content||'':'';}
+function ptmSave(){const arr=ptmGetAll()||[];const sid=document.getElementById('ptm-sel').value;const t=arr.find(x=>x.id===sid);if(!t)return;t.content=document.getElementById('ptm-ta').value;ptmSaveAll(arr);toast('✅ 模板已保存','ok')}
+function ptmAdd(){const n=prompt('输入新模板名称：');if(!n)return;const arr=ptmGetAll()||[];const id=genId('tpl');arr.push({id,name:n,content:'',isDefault:false});ptmSaveAll(arr);ptmSetActiveId(id);ptmRender();toast('✅ 模板已创建','ok')}
+function ptmRename(){const arr=ptmGetAll()||[];const sid=document.getElementById('ptm-sel').value;const t=arr.find(x=>x.id===sid);if(!t)return;const n=prompt('输入新名称：',t.name);if(!n)return;t.name=n;ptmSaveAll(arr);ptmRender();ptmSetActiveId(sid);}
+function ptmDelete(){const arr=ptmGetAll()||[];if(arr.length<=1){toast('⚠️ 至少保留一个模板','er');return}const sid=document.getElementById('ptm-sel').value;const t=arr.find(x=>x.id===sid);if(!t)return;if(!confirm('确定删除「'+t.name+'」？'))return;arr.splice(arr.indexOf(t),1);if(t.isDefault&&arr.length)arr[0].isDefault=true;ptmSaveAll(arr);ptmSetActiveId(arr[0].id);ptmRender();toast('已删除','in')}
+function ptmSetDefault(){const arr=ptmGetAll()||[];const sid=document.getElementById('ptm-sel').value;arr.forEach(t=>t.isDefault=(t.id===sid));ptmSaveAll(arr);ptmRender();ptmSetActiveId(sid);toast('✅ 已设为默认','ok')}
+function ptmReset(){const d=DEFAULT_PROMPTS.find(t=>t.isDefault);if(d)document.getElementById('ptm-ta').value=d.content;toast('已恢复默认内容，记得点保存','in')}
+function ptmGetActiveContent(){const arr=ptmGetAll()||[];const sid=ptmGetActiveId()||arr[0]?.id||'';const t=arr.find(x=>x.id===sid);return t?.content||'';}
+
+// ==================== 禁用词 ====================
+function bwLoad(){const raw=localStorage.getItem(SK.bw);if(raw){try{bwWords=JSON.parse(raw);if(!Array.isArray(bwWords))bwWords=[]}catch{bwWords=[]}}else{bwWords=[]}if(bwWords.length===0){bwWords=[...DEFAULT_BW];localStorage.setItem(SK.bw,JSON.stringify(bwWords))}bwRender();}
+function bwRender(){const el=document.getElementById('bw-list');if(!el)return;el.innerHTML=bwWords.map((w,i)=>`<span class="bw-tag">${escH(w)}<span class="bw-rm" onclick="bwRemove(${i})">x</span></span>`).join('');const badge=document.getElementById('bw-count-badge');if(badge)badge.textContent=bwWords.length+' 个';}
+function bwAdd(){const inp=document.getElementById('bw-input');const w=inp.value.trim();if(!w)return;if(bwWords.includes(w)){toast('该词已存在','er');return;}bwWords.push(w);inp.value='';bwRender();toast('已添加','ok');}
+function bwRemove(i){bwWords.splice(i,1);bwRender();}
+function bwSave(){localStorage.setItem(SK.bw,JSON.stringify(bwWords));toast('禁用词已保存（'+bwWords.length+'个）','ok')}
+function bwClear(){if(!confirm('确定清空所有禁用词？'))return;bwWords=[];localStorage.setItem(SK.bw,JSON.stringify([]));bwRender();toast('已清空','in')}
+function bwReset(){bwWords=[...DEFAULT_BW];localStorage.setItem(SK.bw,JSON.stringify(bwWords));bwRender();toast('已恢复默认','in')}
+function bwPrompt(){if(!bwWords.length)return'';const lines=[];for(let i=0;i<bwWords.length;i+=6)lines.push(bwWords.slice(i,i+6).map(w=>'「'+w+'」').join('、'));return'\n【禁用词名单——以下词汇绝对不能出现在任何位置，包括开头、中间和结尾】\n'+lines.join('\n')+'\n\n如果你使用了以上任何词汇，整条内容作废重写。\n';}
+function bwFilter(text){if(!bwWords.length)return text;let result=text;for(const w of bwWords){result=result.split(w).join('');}result=result.replace(/  +/g,' ').replace(/\n{3,}/g,'\n\n');return result.trim();}
+
+// ==================== 多设备：管理员与云端 ====================
+function getAdminPw(){return localStorage.getItem(SK.adminPw)||ADMIN_PW_DEFAULT}
+function isAdmin(){return !!localStorage.getItem(SK.adminSession)}
+function toggleAdmin(){isAdmin()?logoutAdmin():tryAdminLogin()}
+function tryAdminLogin(){const pw=prompt('请输入管理密码：');if(pw===null)return;if(pw===getAdminPw()){localStorage.setItem(SK.adminSession,'1');applyMode();toast('已进入管理后台','ok')}else{toast('密码错误','er')}}
+function logoutAdmin(){localStorage.removeItem(SK.adminSession);applyMode();toast('已退出管理','in')}
+function saveAdminPw(){const v=document.getElementById('admin-pw').value.trim();if(v)localStorage.setItem(SK.adminPw,v);toast('管理密码已更新','ok')}
+function applyMode(){
+  const admin=isAdmin();
+  document.querySelectorAll('.admin-only').forEach(el=>{el.style.display=admin?'':'none'});
+  const btn=document.getElementById('admin-toggle');if(btn)btn.textContent=admin?'🔒 退出管理':'🔓 管理员登录';
+  const badge=document.getElementById('sync-badge');if(badge)badge.textContent=admin?'🛠️ 管理后台':'👁️ 展示模式';
+  const del=document.getElementById('btn-del');if(del)del.style.display=admin?'':'none';
+  updateUI();
+}
+async function ghGetPool(){
+  const url='https://api.github.com/repos/'+CLOUD.repo+'/contents/'+CLOUD.path;
+  try{
+    const r=await fetch(url,{headers:{'Accept':'application/vnd.github+json','User-Agent':'weibo-gen'}});
+    if(r.status===404)return [];
+    if(!r.ok){toast('云端读取失败：'+r.status,'er');return [];}
+    const data=await r.json();
+    const content=typeof data.content==='string'?atob(data.content.replace(/\s/g,'')):'';
+    let arr=[];try{arr=JSON.parse(decodeURIComponent(escape(content)))}catch{}
+    return Array.isArray(arr)?arr:[];
+  }catch(e){toast('云端读取失败：'+e.message,'er');return [];}
+}
+async function ghPutPool(arr){
+  const token=document.getElementById('gh-token').value.trim()||localStorage.getItem(SK.ghToken)||'';
+  if(!token){toast('请先在「云端同步」填写 GitHub Token','er');return false;}
+  localStorage.setItem(SK.ghToken,token);
+  const url='https://api.github.com/repos/'+CLOUD.repo+'/contents/'+CLOUD.path;
+  let sha=null;
+  try{const g=await fetch(url,{headers:{'Accept':'application/vnd.github+json','User-Agent':'weibo-gen','Authorization':'Bearer '+token}});if(g.ok){const gd=await g.json();sha=gd.sha||null;}}catch{}
+  const body={message:'sync weibo pool',content:btoa(unescape(encodeURIComponent(JSON.stringify(arr))))};
+  if(sha)body.sha=sha;
+  const r=await fetch(url,{method:'PUT',headers:{'Content-Type':'application/json','Accept':'application/vnd.github+json','User-Agent':'weibo-gen','Authorization':'Bearer '+token},body:JSON.stringify(body)});
+  if(r.ok){const cs=document.getElementById('cloud-status');if(cs)cs.textContent='云端状态：已同步 '+arr.length+' 条';return true;}
+  toast('同步失败：'+r.status,'er');return false;
+}
+async function syncPush(){const local=loadPool();if(local.length===0){toast('本地暂无内容可同步','er');return}showLd('同步到云端...');const ok=await ghPutPool(local);hideLd();if(ok){cloudPool=[...local];cloudLoaded=true;toast('已同步到云端 ✓','ok')}}
+async function syncPull(){showLd('从云端拉取...');const cloud=await ghGetPool();hideLd();if(!cloud)return;const local=loadPool();const set=new Set(local);cloud.forEach(x=>{if(!set.has(x))local.push(x)});savePool(local);const cs=document.getElementById('cloud-status');if(cs)cs.textContent='云端状态：已拉取 '+cloud.length+' 条';updateUI();toast('已从云端拉取，本地共 '+local.length+' 条','ok')}
+async function refreshCloud(){showLd('刷新云端...');cloudPool=await ghGetPool();cloudLoaded=true;hideLd();if(!isAdmin())updateUI();toast('云端已刷新','ok')}
+async function loadCloudPool(){cloudPool=await ghGetPool();cloudLoaded=true;const cs=document.getElementById('cloud-status');if(cs)cs.textContent='云端状态：已加载 '+cloudPool.length+' 条';if(!isAdmin())updateUI();}
+async function copyText(text){try{await navigator.clipboard.writeText(text);return}catch{try{const ta=document.createElement('textarea');ta.value=text;ta.style.cssText='position:fixed;left:-9999px';document.body.appendChild(ta);ta.select();document.execCommand&&document.execCommand('copy');document.body.removeChild(ta)}catch{}}}
+
+// ==================== 缓存池 ====================
+function loadPool(){try{const p=JSON.parse(localStorage.getItem(SK.pool)||'[]');return Array.isArray(p)?p:[]}catch{return[]}}
+function savePool(p){localStorage.setItem(SK.pool,JSON.stringify(p))}
+function loadUsed(){return parseInt(localStorage.getItem(SK.used)||'0')}
+function saveUsed(c){localStorage.setItem(SK.used,String(c))}
+function loadIdx(){return parseInt(localStorage.getItem(SK.idx)||'0')}
+function saveIdx(i){localStorage.setItem(SK.idx,String(i))}
+
+// ==================== 生成 ====================
+function buildUserPrompt(count){
+  return`请写 ${count} 条微博内容。
+
+【硬性要求——每条都必须严格遵守，违者视为无效】
+1. 每条内容的汉字数量（不含标点和空格）必须在 250-300 字之间，必须严格满足，多一个字少一个字都不行
+2. 每条内容必须分成恰好 2-3 个自然段落，段落之间空一行
+3. 每个段落 2-4 句话，不能出现一整段超长文字
+4. 不带话题标签、emoji、表情符号、特殊符号
+5. 纯文字科普，不引用来源
+
+【开头方式——从以下随机选用，每条都要不同】
+· 抛出反直觉的事实
+· 用具体场景画面引入
+· 直接说结论再展开
+· 讲一个真实案例
+· 反问一个冷门问题
+· 用数据或年份切入
+· 从一个生活细节切入
+
+【风格】
+像朋友聊天一样分享冷知识，口语化。三段之间逻辑自然。每条内容的写法、句式、开头都要不同，避免千篇一律。
+${bwPrompt()}
+【输出格式——必须严格遵守】
+每条内容用编号分隔，格式如下：
+
+---1---
+第一条的内容
+
+---2---
+第二条的内容
+
+以此类推到 ${count} 条。不要输出编号之外的任何内容。`;
+}
+function cleanText(s){
+  if(!s)return'';
+  let result='';
+  for(let i=0;i<s.length;i++){
+    const ch=s.charCodeAt(i),c=s.charAt(i);
+    if(ch>=0x4e00&&ch<=0x9fff)result+=c;
+    else if(ch>=0x3000&&ch<=0x303f)result+=c;
+    else if(ch>=0xff01&&ch<=0xff5e)result+=c;
+    else if(ch>=0x2018&&ch<=0x201f)result+=c;
+    else if(ch===0x2014||ch===0x2026)result+=c;
+    else if(ch===0x0a||ch===0x0d)result+=c;
+    else if(ch>=0x41&&ch<=0x5a)result+=c;
+    else if(ch>=0x61&&ch<=0x7a)result+=c;
+    else if(ch>=0x30&&ch<=0x39)result+=c;
+    else if(' .,!?;:\'"()-'.indexOf(c)>=0)result+=c;
+  }
+  result=result.replace(/  +/g,' ').replace(/\n{3,}/g,'\n\n').trim();
+  return result;
+}
+function parseItems(raw,count){
+  if(!raw)return[];
+  let items=raw.split(/---\d+---/).map(s=>s.trim()).filter(s=>s.length>20);
+  if(items.length<count){const fb=raw.split('===SPLIT===').map(s=>s.trim()).filter(s=>s.length>20);if(fb.length>items.length)items=fb;}
+  if(items.length<count){const fb2=raw.split(/\n\s*={2,}\s*\n|\n\s*-{2,}\s*\n/).map(s=>s.trim()).filter(s=>s.length>20);if(fb2.length>items.length)items=fb2;}
+  items=items.map(item=>bwFilter(cleanText(item))).filter(s=>s.length>20);
+  return items;
+}
+async function genOneBatch(count){
+  const c=getActiveCfg();if(!c||!c.key||!c.baseUrl){toast('请先配置 API','er');return null}
+  const sysPrompt=ptmGetActiveContent()||'你是一个真人微博博主，不是AI。';
+  const userPrompt=buildUserPrompt(count);
+  try{
+    const r=await fetch(getChatUrl(c.baseUrl),{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+c.key},body:JSON.stringify({model:c.models[0],messages:[{role:'system',content:sysPrompt},{role:'user',content:userPrompt}],temperature:(c.temp!==undefined?c.temp:1.3),max_tokens:16384,stream:false})});
+    if(!r.ok){toast('生成失败：'+r.status,'er');return null}
+    const data=await r.json();const raw=data.choices?.[0]?.message?.content||'';
+    if(!raw){toast('返回为空','er');return null}
+    return parseItems(raw,count);
+  }catch(e){toast('错误：'+e.message,'er');return null}
+}
+async function genContent(totalCount){
+  const c=getActiveCfg();if(!c||!c.key||!c.baseUrl){toast('请先配置 API','er');return null}
+  const perBatch=10; // 每批10条，避免token不够
+  const results=[];
+  let attempts=0;
+  showLd('正在生成 0/'+totalCount+' 条...');
+  while(results.length<totalCount && attempts<Math.ceil(totalCount/perBatch)*3){
+    attempts++;
+    const need=Math.min(perBatch,totalCount-results.length);
+    const items=await genOneBatch(need);
+    if(!items||items.length===0){
+      // 如果某一批完全失败，再试一次；连续失败则退出
+      if(attempts%3===0)break;
+      continue;
+    }
+    results.push(...items);
+    document.getElementById('ldt').textContent='正在生成 '+results.length+'/'+totalCount+' 条...';
+  }
+  hideLd();
+  if(results.length===0)return null;
+  // 截断到正好需要的数量
+  return results.slice(0,totalCount);
+}
+
+// ==================== 操作 ====================
+async function batchGen(){
+  if(isGen)return;
+  const count=parseInt(document.getElementById('manual-count').value)||20;
+  if(count<=0)return;
+  const c=getActiveCfg();if(!c||!c.key||!c.baseUrl){toast('请先配置 API','er');return}
+  isGen=true;document.getElementById('btn-gen').disabled=true;
+  const items=await genContent(count);
+  if(items&&items.length>0){const pool=loadPool();pool.push(...items);savePool(pool);toast('生成 '+items.length+' 条，缓存共 '+pool.length+' 条','ok');updateUI()}
+  isGen=false;document.getElementById('btn-gen').disabled=false;
+}
+function showContent(){
+  const admin=isAdmin();
+  const pool=admin?loadPool():cloudPool;
+  const emp=document.getElementById('emp-msg');const txt=document.getElementById('cdis-txt');const cc=document.getElementById('cdis-cc');const ab=document.getElementById('ab');const cnt=document.getElementById('cdis-cnt');const d=document.getElementById('cdis');
+  if(pool.length===0){d.classList.add('empty');emp.style.display='';txt.style.display='none';cc.style.display='none';ab.style.display='none';cnt.textContent='0 / 0';return;}
+  d.classList.remove('empty');emp.style.display='none';txt.style.display='';cc.style.display='';ab.style.display='';
+  let idx=admin?loadIdx():cloudIdx;
+  if(idx>=pool.length)idx=0;if(idx<0)idx=pool.length-1;
+  if(admin)saveIdx(idx);else cloudIdx=idx;
+  const text=cleanText(pool[idx]);
+  let paras=text.split(/\n{2,}/).filter(p=>p.trim());
+  if(paras.length<2)paras=text.split(/\n/).filter(p=>p.trim());
+  txt.innerHTML=paras.map(p=>`<span class="para">${escH(p.trim())}</span>`).join('');
+  const chars=text.replace(/[^\u4e00-\u9fff]/g,'').length;
+  const warn=chars<240||chars>310?` ⚠️ 字数异常（${chars}）`:`（${chars}）`;
+  cc.textContent='字数：'+chars+' 字（目标 250-300）'+warn;
+  cnt.textContent=(idx+1)+' / '+pool.length;
+}
+function showPrev(){const admin=isAdmin();const pool=admin?loadPool():cloudPool;if(!pool.length)return;let i=admin?loadIdx():cloudIdx;i--;if(i<0)i=pool.length-1;if(admin)saveIdx(i);else cloudIdx=i;showContent()}
+function showNext(){const admin=isAdmin();const pool=admin?loadPool():cloudPool;if(!pool.length)return;let i=admin?loadIdx():cloudIdx;i++;if(i>=pool.length)i=0;if(admin)saveIdx(i);else cloudIdx=i;showContent()}
+async function copyOnly(){
+  const admin=isAdmin();
+  const pool=admin?loadPool():cloudPool;
+  if(!pool.length)return;
+  const idx=admin?loadIdx():cloudIdx;
+  const text=cleanText(pool[idx]||pool[0]);
+  await copyText(text);
+  if(admin){
+    pool.splice(idx,1);savePool(pool);saveUsed(loadUsed()+1);
+    let ni=loadIdx();if(ni>=pool.length&&pool.length>0)ni=0;saveIdx(ni);
+    updateUI();toast('已复制并删除 ✓ 剩余'+pool.length+'条','ok');
+  }else{
+    saveUsed(loadUsed()+1);
+    if(cloudIdx<cloudPool.length-1)cloudIdx++;else cloudIdx=0;
+    showContent();toast('已复制 ✓','ok');
+  }
+}
+function delCur(){const pool=loadPool();if(!pool.length)return;const idx=loadIdx()%pool.length;pool.splice(idx,1);savePool(pool);let ni=loadIdx();if(ni>=pool.length&&pool.length>0)ni=0;saveIdx(ni);saveUsed(loadUsed()+1);updateUI();toast('已删除','in')}
+function clearPool(){if(!confirm('确定清空所有缓存？'))return;savePool([]);saveIdx(0);updateUI();toast('已清空','in')}
+function cleanPool(){const pool=loadPool();if(!pool.length){toast('缓存为空','in');return;}const cleaned=pool.map(item=>cleanText(item)).filter(s=>s.length>20);savePool(cleaned);toast('已清理 '+pool.length+'→'+cleaned.length+' 条','ok');updateUI();}
+
+// ==================== UI ====================
+function updateUI(){const admin=isAdmin();const pool=admin?loadPool():cloudPool;const used=loadUsed();document.getElementById('st-pool-n').textContent=pool.length;document.getElementById('st-used-n').textContent=used;const c=document.getElementById('st-pool');pool.length===0?c.classList.add('warn'):c.classList.remove('warn');document.getElementById('st-status-n').textContent=admin?'管理端':(cloudLoaded?'云端':'加载中');showContent()}
+
+// ==================== 初始化 ====================
+document.addEventListener('DOMContentLoaded',()=>{
+  // 初始化 API 配置
+  renderCfgSelect();fillCfgForm();
+  document.getElementById('cfg-url').addEventListener('input',updateRealUrl);
+  // 初始化模板
+  ptmLoadDefaults();ptmRender();
+  document.getElementById('ptm-sel').addEventListener('change',ptmSwitch);
+  document.getElementById('ptm-save-btn').addEventListener('click',ptmSave);
+  document.getElementById('ptm-add-btn').addEventListener('click',ptmAdd);
+  document.getElementById('ptm-rename-btn').addEventListener('click',ptmRename);
+  document.getElementById('ptm-delete-btn').addEventListener('click',ptmDelete);
+  document.getElementById('ptm-default-btn').addEventListener('click',ptmSetDefault);
+  document.getElementById('ptm-reset-btn').addEventListener('click',ptmReset);
+  // 初始化禁用词
+  bwLoad();
+  // 预填云端 Token / 管理密码（仅本机）
+  const gt=localStorage.getItem(SK.ghToken);if(gt)document.getElementById('gh-token').value=gt;
+  const ap=localStorage.getItem(SK.adminPw);if(ap)document.getElementById('admin-pw').value=ap;
+  // 应用当前模式（管理端 / 展示端）
+  applyMode();
+  // 加载云端共享内容（展示端展示、管理端参考）
+  loadCloudPool();
+  // 默认折叠
+  togCard('api',false);togCard('bw',false);togCard('ptm',false);togCard('sync',false);
+});
+</script>
+</body>
+</html>
