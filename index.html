@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<meta name="version" content="v20260716c-weibo-gen">
+<meta name="version" content="v20260716d-weibo-gen">
 <title>微博养号内容生成器</title>
 <style>
 :root{--c1:#4F46E5;--c1h:#4338CA;--c1l:#EEF2FF;--ok:#10B981;--err:#EF4444;--bg:#F1F5F9;--card:#FFF;--txt:#1E293B;--txt2:#64748B;--bdr:#E2E8F0;--r:12px;--rs:8px;--sh:0 1px 3px rgba(0,0,0,.08);--shm:0 4px 12px rgba(0,0,0,.1);--shl:0 10px 25px rgba(0,0,0,.12);--tr:all .25s ease}
@@ -104,6 +104,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei
 @media(max-width:640px){.fr{flex-direction:column;gap:0}.stats{flex-direction:row!important;gap:6px!important}.bb{flex-direction:column;align-items:stretch}.bb .fs{width:100%;min-width:0}.ab{flex-wrap:wrap}.ab .btn{flex:none;width:calc(50% - 4px);font-size:12px;padding:8px 10px}.st{padding:8px 4px;min-width:0;flex:1}.st-n{font-size:18px!important}.st-l{font-size:10px}.hdr{padding:18px 16px}.hdr h1{font-size:17px}.ctn{padding:12px 10px 30px}.card-b{padding:14px}.ptm-ta{min-height:150px}.cfg-row{flex-direction:column;align-items:stretch}.cfg-row .fs{width:100%}.cfg-actions{width:100%;justify-content:space-between}.cfg-actions .btn{flex:1}}
 /* 多设备：管理后台仅管理员可见 */
 .admin-only{display:none}
+body.admin .admin-only{display:block}
+body.admin .bb.admin-only{display:flex}
 .hdr-actions{margin-top:8px}
 .admin-btn{display:inline-block;font-size:11px;background:rgba(255,255,255,.22);color:#fff;border:1px solid rgba(255,255,255,.45);padding:4px 14px;border-radius:14px;cursor:pointer;font-family:inherit;transition:var(--tr)}
 .admin-btn:hover{background:rgba(255,255,255,.35)}
@@ -468,7 +470,8 @@ function logoutAdmin(){localStorage.removeItem(SK.adminSession);applyMode();toas
 function saveAdminPw(){const v=document.getElementById('admin-pw').value.trim();if(v)localStorage.setItem(SK.adminPw,v);toast('管理密码已更新','ok')}
 function applyMode(){
   const admin=isAdmin();
-  document.querySelectorAll('.admin-only').forEach(el=>{el.style.display=admin?'':'none'});
+  document.body.classList.toggle('admin',admin);
+  document.querySelectorAll('.admin-only').forEach(el=>{el.style.display=''});
   const btn=document.getElementById('admin-toggle');if(btn)btn.textContent=admin?'🔒 退出管理':'🔓 管理员登录';
   const badge=document.getElementById('sync-badge');if(badge)badge.textContent=admin?'🛠️ 管理后台':'👁️ 展示模式';
   const del=document.getElementById('btn-del');if(del)del.style.display=admin?'':'none';
