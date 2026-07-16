@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<meta name="version" content="v20260716d-weibo-gen">
+<meta name="version" content="v20260716e-weibo-gen">
 <title>微博养号内容生成器</title>
 <style>
 :root{--c1:#4F46E5;--c1h:#4338CA;--c1l:#EEF2FF;--ok:#10B981;--err:#EF4444;--bg:#F1F5F9;--card:#FFF;--txt:#1E293B;--txt2:#64748B;--bdr:#E2E8F0;--r:12px;--rs:8px;--sh:0 1px 3px rgba(0,0,0,.08);--shm:0 4px 12px rgba(0,0,0,.1);--shl:0 10px 25px rgba(0,0,0,.12);--tr:all .25s ease}
@@ -135,6 +135,7 @@ body.admin .bb.admin-only{display:flex}
     <div class="fr"><div class="fg"><label class="fl">配置名称</label><input class="fi" id="cfg-name" placeholder="例如：ywcode 中转" /></div></div>
     <div class="fr"><div class="fg"><label class="fl">API 基础 URL</label><input class="fi" id="cfg-url" placeholder="https://api.ywcode.top/v1" /></div></div>
     <div class="url-preview">实际请求地址：<strong id="cfg-real-url">-</strong><br><small>系统会在基础 URL 后自动补全 /chat/completions</small></div>
+    <div class="fr"><div class="fg"><label class="fl">模型列表路径 <small style="color:#94A3B8;font-weight:400">默认 /models，部分站用 /v1/models</small></label><input class="fi" id="cfg-models-path" placeholder="/models" value="/models" onblur="localStorage.setItem(SK.mp,this.value.trim()||'/models')" /></div></div>
     <div class="fr"><div class="fg"><label class="fl">API Key</label><input class="fi" id="cfg-key" type="password" placeholder="sk-..." /></div></div>
     <div class="fr"><div class="fg"><label class="fl">模型名称 <small style="color:#94A3B8;font-weight:400">多个用逗号或换行分隔</small></label><textarea class="fta" id="cfg-models" rows="2" placeholder="gpt-5.4, gpt-5.5, gpt-5.6-luna"></textarea></div></div>
     <div class="fr"><div class="fg" style="display:flex;gap:6px;flex-wrap:wrap;"><button class="btn btn-o" onclick="openModelPicker()" style="flex:none;">📋 从预置模型选择</button><button class="btn btn-p" onclick="fetchModels()" style="flex:none;">🌐 获取模型</button><button class="btn btn-o" onclick="clearModelInput()" style="flex:none;">清空</button></div><div class="fg nf" style="width:100px;"><label class="fl">Temperature</label><input class="fi" id="cfg-temp" type="number" min="0" max="2" step="0.1" value="1.3" /></div></div>
@@ -164,7 +165,7 @@ body.admin .bb.admin-only{display:flex}
   <div class="bb admin-only"><span class="bl">📦 批量生成：</span><select class="fs" id="manual-count" style="width:auto;min-width:80px;"><option value="5">5</option><option value="10">10</option><option value="20" selected>20</option><option value="30">30</option><option value="50">50</option><option value="100">100</option><option value="200">200</option><option value="300">300</option></select><button class="btn btn-p" onclick="batchGen()" id="btn-gen">⚡ 生成</button><button class="btn btn-d" onclick="clearPool()">🗑️ 清空</button></div>
 
   <div class="card admin-only" id="sync-card"><div class="card-h" onclick="togCard('sync')"><h3>☁️ 云端同步</h3><span class="card-tog" id="sync-tog">▼</span></div><div class="card-b" id="sync-body">
-    <div class="url-preview">共享内容存于 GitHub 仓库 <strong>jiesenmax-lang/weibo-gen</strong> 的 <strong>pool.json</strong>，其他手机打开本页会自动拉取展示。</div>
+    <div class="url-preview">共享内容存于 GitHub 仓库 <strong>jiesenmax-lang/weibo-gen</strong> 的 <strong>pool.json</strong>。<strong>生成 / 删除后自动同步到云端</strong>；其他手机打开本页会<strong>自动拉取最新</strong>，并每 60 秒后台刷新一次，无需逐台手动点同步。</div>
     <div class="fr"><div class="fg"><label class="fl">GitHub Token <small style="color:#94A3B8;font-weight:400">仅写入云端时需要，留空则只能只读</small></label><input class="fi" id="gh-token" type="password" placeholder="github_pat_..." /></div></div>
     <div class="fr"><div class="fg"><label class="fl">管理密码 <small style="color:#94A3B8;font-weight:400">其他手机需输入此密码才看得到管理后台</small></label><input class="fi" id="admin-pw" type="password" placeholder="默认 jiesen" onblur="saveAdminPw()" /></div></div>
     <div class="cfg-row">
@@ -207,7 +208,7 @@ body.admin .bb.admin-only{display:flex}
 <script>
 // ==================== 存储键名 ====================
 if(typeof structuredClone!=='function'){structuredClone=function(o){return JSON.parse(JSON.stringify(o))}}
-const SK={api:'wbg_api_v3',cfg:'wbg_cfg',pool:'wbg_pool',used:'wbg_used',idx:'wbg_idx',bw:'wbg_bw_v2',ptm:'wbg_ptm_v2',ptmAct:'wbg_ptm_act_v2',ghToken:'wbg_gh_token',adminSession:'wbg_admin_session',adminPw:'wbg_admin_pw'};
+const SK={api:'wbg_api_v3',cfg:'wbg_cfg',pool:'wbg_pool',used:'wbg_used',idx:'wbg_idx',bw:'wbg_bw_v2',ptm:'wbg_ptm_v2',ptmAct:'wbg_ptm_act_v2',ghToken:'wbg_gh_token',adminSession:'wbg_admin_session',adminPw:'wbg_admin_pw',mp:'wbg_mp'};
 let isGen=false;
 let bwWords=[];
 const ADMIN_PW_DEFAULT='jiesen';
@@ -344,7 +345,7 @@ function getActiveCfg(){const d=loadApiConfigs();let c=d.configs.find(x=>x.id===
 function getChatUrl(baseUrl){if(!baseUrl)return'';let u=baseUrl.trim();if(!u)return'';if(u.endsWith('#'))return u.slice(0,-1);if(!/\/chat\/completions$/i.test(u))u=u.replace(/\/$/,'')+'/chat/completions';return u}
 function renderCfgSelect(){const d=loadApiConfigs();const sel=document.getElementById('cfg-sel');sel.innerHTML=d.configs.map(c=>`<option value="${c.id}">${c.name}${c.id===d.activeId?' ✓':''}</option>`).join('');sel.value=d.activeId||'';}
 function fillCfgForm(){const c=getActiveCfg();if(!c)return;document.getElementById('cfg-name').value=c.name||'';document.getElementById('cfg-url').value=c.baseUrl||'';document.getElementById('cfg-key').value=c.key||'';document.getElementById('cfg-models').value=(c.models||[]).join(', ');document.getElementById('cfg-temp').value=(c.temp!==undefined?c.temp:1.3);updateRealUrl();}
-function updateRealUrl(){const u=getChatUrl(document.getElementById('cfg-url').value);document.getElementById('cfg-real-url').textContent=u||'-';const hint=document.getElementById('fetch-hint');if(hint){const val=document.getElementById('cfg-url').value.trim();hint.style.display=val?'block':'none';if(val)document.getElementById('fetch-url-preview').textContent=getModelsUrl(val);}}
+function updateRealUrl(){const u=getChatUrl(document.getElementById('cfg-url').value);document.getElementById('cfg-real-url').textContent=u||'-';const hint=document.getElementById('fetch-hint');if(hint){const val=document.getElementById('cfg-url').value.trim();hint.style.display=val?'block':'none';if(val)document.getElementById('fetch-url-preview').textContent=getModelsCandidates(val)[0];}}
 function switchCfg(){const id=document.getElementById('cfg-sel').value;const d=loadApiConfigs();d.activeId=id;saveApiConfigs(d);fillCfgForm();renderCfgSelect();toast('已切换配置','ok')}
 function saveCfg(){const d=loadApiConfigs();const c=d.configs.find(x=>x.id===d.activeId);if(!c){toast('请先新建配置','er');return}const name=document.getElementById('cfg-name').value.trim();const baseUrl=document.getElementById('cfg-url').value.trim();const key=document.getElementById('cfg-key').value.trim();const models=document.getElementById('cfg-models').value.split(/[,，\n]+/).map(s=>s.trim()).filter(Boolean);const temp=parseFloat(document.getElementById('cfg-temp').value)||1.3;if(!name||!baseUrl){toast('名称和基础 URL 不能为空','er');return}if(models.length===0){toast('至少填写一个模型名称','er');return}c.name=name;c.baseUrl=baseUrl;c.key=key;c.models=models;c.temp=temp;saveApiConfigs(d);renderCfgSelect();toast('配置已保存','ok')}
 function addCfg(){const n=prompt('输入新配置名称：');if(!n)return;const d=loadApiConfigs();const id=genId('cfg');d.configs.push({id,name:n,baseUrl:'',key:'',models:[],temp:1.3});d.activeId=id;saveApiConfigs(d);renderCfgSelect();fillCfgForm();toast('已创建配置','ok')}
@@ -368,42 +369,55 @@ function filterModels(){const q=document.getElementById('model-search').value.tr
 // ==================== 自动获取模型列表 ====================
 let fetchedModelsList=[];      // 接口返回的全部模型 id
 let selectedFetchedModels=[];  // 当前勾选的模型 id
-function getModelsUrl(baseUrl){
-  if(!baseUrl)return'';
-  let u=baseUrl.trim().replace(/\/$/,'');
-  return u+'/models';
+function getModelsCandidates(baseUrl){
+  const path=(document.getElementById('cfg-models-path').value.trim()||'/models').replace(/^\/+|\/+$/g,'');
+  let u=baseUrl.trim().replace(/\/+$/,'');
+  const cands=[u+'/'+path];                       // 直接用用户填的路径
+  if(/\/v1$/.test(u)){                             // base 带 /v1，再试去掉 /v1 的根路径
+    cands.push(u.replace(/\/v1$/,'').replace(/\/$/,'')+'/'+path);
+  }else{                                           // base 不带 /v1，再试补 /v1
+    cands.push(u+'/v1/'+path);
+  }
+  return [...new Set(cands)];
 }
 async function fetchModels(){
   const url=document.getElementById('cfg-url').value.trim();
   const key=document.getElementById('cfg-key').value.trim();
   if(!url){toast('请先填写 API 基础 URL','er');return}
   if(!key){toast('请先填写 API Key','er');return}
-  const modelsUrl=getModelsUrl(url);
-  document.getElementById('fetch-url-preview').textContent=modelsUrl;
+  const cands=getModelsCandidates(url);
   showLd('正在获取模型列表...');
-  try{
-    const r=await fetch(modelsUrl,{headers:{'Authorization':'Bearer '+key}});
-    hideLd();
-    if(!r.ok){toast('获取失败（HTTP '+r.status+'）：该中转站可能不支持 /models 接口，请手动填写','er');return}
-    const data=await r.json();
-    let ids=[];
-    if(Array.isArray(data)){ids=data.map(x=>typeof x==='string'?x:(x.id||x.name||''))}
-    else if(data&&Array.isArray(data.data)){ids=data.data.map(x=>typeof x==='string'?x:(x.id||x.name||''))}
-    else if(data&&Array.isArray(data.models)){ids=data.models.map(x=>typeof x==='string'?x:(x.id||x.name||''))}
-    ids=ids.map(s=>String(s).trim()).filter(Boolean);
-    if(ids.length===0){toast('接口未返回任何模型，请手动填写','er');return}
-    // 去重（保留首次出现顺序）
-    const seen=new Set();fetchedModelsList=ids.filter(id=>{if(seen.has(id))return false;seen.add(id);return true});
-    const existing=document.getElementById('cfg-models').value.split(/[,，\n]+/).map(s=>s.trim()).filter(Boolean);
-    selectedFetchedModels=fetchedModelsList.filter(id=>existing.includes(id));
-    renderFetchedModels();
-    document.getElementById('fetch-model-status').style.display='none';
-    document.getElementById('fetch-model-search').value='';
-    document.getElementById('fetch-models-modal').classList.add('show');
-  }catch(e){
-    hideLd();
-    toast('获取失败：'+e.message+'（多数情况是浏览器跨域 CORS 限制，可改用预置选择或手动填写）','er');
+  let lastErr='';
+  for(const modelsUrl of cands){
+    document.getElementById('fetch-url-preview').textContent=modelsUrl;
+    try{
+      const r=await fetch(modelsUrl,{headers:{'Authorization':'Bearer '+key}});
+      if(r.ok){
+        const data=await r.json();
+        let ids=[];
+        if(Array.isArray(data)){ids=data.map(x=>typeof x==='string'?x:(x.id||x.name||''))}
+        else if(data&&Array.isArray(data.data)){ids=data.data.map(x=>typeof x==='string'?x:(x.id||x.name||''))}
+        else if(data&&Array.isArray(data.models)){ids=data.models.map(x=>typeof x==='string'?x:(x.id||x.name||''))}
+        ids=ids.map(s=>String(s).trim()).filter(Boolean);
+        if(ids.length===0){lastErr='接口 '+modelsUrl+' 返回为空';continue;}
+        const seen=new Set();fetchedModelsList=ids.filter(id=>{if(seen.has(id))return false;seen.add(id);return true});
+        const existing=document.getElementById('cfg-models').value.split(/[,，\n]+/).map(s=>s.trim()).filter(Boolean);
+        selectedFetchedModels=fetchedModelsList.filter(id=>existing.includes(id));
+        renderFetchedModels();
+        document.getElementById('fetch-model-status').style.display='none';
+        document.getElementById('fetch-model-search').value='';
+        document.getElementById('fetch-models-modal').classList.add('show');
+        hideLd();
+        return;
+      }else if(r.status===401||r.status===403){lastErr='鉴权失败（HTTP '+r.status+'）：Key 无效或无权限（'+modelsUrl+'）';}
+      else if(r.status===404){lastErr='该地址未提供模型列表（HTTP 404）：'+modelsUrl;}
+      else{lastErr='获取失败（HTTP '+r.status+'）：'+modelsUrl;}
+    }catch(e){
+      lastErr='请求 '+modelsUrl+' 出错：'+(e.message||e)+'（若提示跨域/CORS，说明该中转站禁止浏览器直接访问，可用「📋 从预置模型选择」或手动填）';
+    }
   }
+  hideLd();
+  toast('获取失败：'+lastErr+'。多数中转站只代理对话、不开放 /models 端点，可直接手动填写','er');
 }
 function renderFetchedModels(){
   const list=document.getElementById('fetch-model-list');
@@ -507,6 +521,31 @@ async function syncPull(){showLd('从云端拉取...');const cloud=await ghGetPo
 async function refreshCloud(){showLd('刷新云端...');cloudPool=await ghGetPool();cloudLoaded=true;hideLd();if(!isAdmin())updateUI();toast('云端已刷新','ok')}
 async function loadCloudPool(){cloudPool=await ghGetPool();cloudLoaded=true;const cs=document.getElementById('cloud-status');if(cs)cs.textContent='云端状态：已加载 '+cloudPool.length+' 条';if(!isAdmin())updateUI();}
 async function copyText(text){try{await navigator.clipboard.writeText(text);return}catch{try{const ta=document.createElement('textarea');ta.value=text;ta.style.cssText='position:fixed;left:-9999px';document.body.appendChild(ta);ta.select();document.execCommand&&document.execCommand('copy');document.body.removeChild(ta)}catch{}}}
+
+// ==================== 自动同步 ====================
+// 管理端：本地内容变更后，若已配置 Token，静默推送到云端（不弹 loading）
+async function autoPush(){
+  if(!isAdmin())return;
+  const token=document.getElementById('gh-token').value.trim()||localStorage.getItem(SK.ghToken)||'';
+  if(!token)return;            // 没配 token 就不自动推，避免误报错
+  const local=loadPool();
+  const ok=await ghPutPool(local);
+  if(ok){cloudPool=[...local];cloudLoaded=true;}
+}
+// 展示端：定时检测云端是否有更新（生成/删除后自动可见，无需逐台手动拉取）
+let cloudPollTimer=null;
+async function pollCloud(){
+  if(isAdmin())return;        // 管理端以本地为准，不被动覆盖
+  const fresh=await ghGetPool();
+  const a=JSON.stringify(fresh),b=JSON.stringify(cloudPool);
+  if(a!==b){cloudPool=fresh;cloudLoaded=true;if(cloudIdx>=cloudPool.length)cloudIdx=0;updateUI();toast('云端内容已更新 ✓','in')}
+}
+function startCloudSync(){
+  if(cloudPollTimer)return;
+  cloudPollTimer=setInterval(pollCloud,60000);   // 每 60 秒检测一次（远低于 GitHub 匿名限流）
+  document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')pollCloud()});
+  window.addEventListener('focus',pollCloud);     // 切回标签页/获得焦点时立即刷新
+}
 
 // ==================== 缓存池 ====================
 function loadPool(){try{const p=JSON.parse(localStorage.getItem(SK.pool)||'[]');return Array.isArray(p)?p:[]}catch{return[]}}
@@ -621,7 +660,7 @@ async function batchGen(){
   const c=getActiveCfg();if(!c||!c.key||!c.baseUrl){toast('请先配置 API','er');return}
   isGen=true;document.getElementById('btn-gen').disabled=true;
   const items=await genContent(count);
-  if(items&&items.length>0){const pool=loadPool();pool.push(...items);savePool(pool);toast('生成 '+items.length+' 条，缓存共 '+pool.length+' 条','ok');updateUI()}
+  if(items&&items.length>0){const pool=loadPool();pool.push(...items);savePool(pool);toast('生成 '+items.length+' 条，缓存共 '+pool.length+' 条','ok');updateUI();autoPush()}
   isGen=false;document.getElementById('btn-gen').disabled=false;
 }
 function showContent(){
@@ -654,15 +693,15 @@ async function copyOnly(){
   if(admin){
     pool.splice(idx,1);savePool(pool);saveUsed(loadUsed()+1);
     let ni=loadIdx();if(ni>=pool.length&&pool.length>0)ni=0;saveIdx(ni);
-    updateUI();toast('已复制并删除 ✓ 剩余'+pool.length+'条','ok');
+    updateUI();autoPush();toast('已复制并删除 ✓ 剩余'+pool.length+'条','ok');
   }else{
     saveUsed(loadUsed()+1);
     if(cloudIdx<cloudPool.length-1)cloudIdx++;else cloudIdx=0;
     showContent();toast('已复制 ✓','ok');
   }
 }
-function delCur(){const pool=loadPool();if(!pool.length)return;const idx=loadIdx()%pool.length;pool.splice(idx,1);savePool(pool);let ni=loadIdx();if(ni>=pool.length&&pool.length>0)ni=0;saveIdx(ni);saveUsed(loadUsed()+1);updateUI();toast('已删除','in')}
-function clearPool(){if(!confirm('确定清空所有缓存？'))return;savePool([]);saveIdx(0);updateUI();toast('已清空','in')}
+function delCur(){const pool=loadPool();if(!pool.length)return;const idx=loadIdx()%pool.length;pool.splice(idx,1);savePool(pool);let ni=loadIdx();if(ni>=pool.length&&pool.length>0)ni=0;saveIdx(ni);saveUsed(loadUsed()+1);updateUI();autoPush();toast('已删除','in')}
+function clearPool(){if(!confirm('确定清空所有缓存？'))return;savePool([]);saveIdx(0);updateUI();autoPush();toast('已清空','in')}
 function cleanPool(){const pool=loadPool();if(!pool.length){toast('缓存为空','in');return;}const cleaned=pool.map(item=>cleanText(item)).filter(s=>s.length>20);savePool(cleaned);toast('已清理 '+pool.length+'→'+cleaned.length+' 条','ok');updateUI();}
 
 // ==================== UI ====================
@@ -684,13 +723,16 @@ document.addEventListener('DOMContentLoaded',()=>{
   document.getElementById('ptm-reset-btn').addEventListener('click',ptmReset);
   // 初始化禁用词
   bwLoad();
-  // 预填云端 Token / 管理密码（仅本机）
+  // 预填云端 Token / 管理密码 / 模型列表路径（仅本机）
   const gt=localStorage.getItem(SK.ghToken);if(gt)document.getElementById('gh-token').value=gt;
   const ap=localStorage.getItem(SK.adminPw);if(ap)document.getElementById('admin-pw').value=ap;
+  const mp=localStorage.getItem(SK.mp);if(mp)document.getElementById('cfg-models-path').value=mp;
   // 应用当前模式（管理端 / 展示端）
   applyMode();
   // 加载云端共享内容（展示端展示、管理端参考）
   loadCloudPool();
+  // 启动展示端自动拉取（每 60 秒 + 切回标签页时）
+  startCloudSync();
   // 默认折叠
   togCard('api',false);togCard('bw',false);togCard('ptm',false);togCard('sync',false);
 });
