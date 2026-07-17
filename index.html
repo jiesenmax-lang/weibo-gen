@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<meta name="version" content="v20260716e-weibo-gen">
+<meta name="version" content="v20260717-weibo-gen">
 <title>微博养号内容生成器</title>
 <style>
 :root{--c1:#4F46E5;--c1h:#4338CA;--c1l:#EEF2FF;--ok:#10B981;--err:#EF4444;--bg:#F1F5F9;--card:#FFF;--txt:#1E293B;--txt2:#64748B;--bdr:#E2E8F0;--r:12px;--rs:8px;--sh:0 1px 3px rgba(0,0,0,.08);--shm:0 4px 12px rgba(0,0,0,.1);--shl:0 10px 25px rgba(0,0,0,.12);--tr:all .25s ease}
@@ -110,6 +110,10 @@ body.admin .bb.admin-only{display:flex}
 .admin-btn{display:inline-block;font-size:11px;background:rgba(255,255,255,.22);color:#fff;border:1px solid rgba(255,255,255,.45);padding:4px 14px;border-radius:14px;cursor:pointer;font-family:inherit;transition:var(--tr)}
 .admin-btn:hover{background:rgba(255,255,255,.35)}
 .sync-card .url-preview{margin-bottom:10px}
+.sync-status-badge{display:inline-block;font-size:12px;font-weight:500;padding:6px 10px;border-radius:20px;margin-bottom:10px}
+.sync-status-badge.ok{background:#D1FAE5;color:#065F46}
+.sync-status-badge.warn{background:#FEF3C7;color:#92400E}
+.sync-status-badge.er{background:#FEE2E2;color:#991B1B}
 </style>
 </head>
 <body>
@@ -166,7 +170,8 @@ body.admin .bb.admin-only{display:flex}
 
   <div class="card admin-only" id="sync-card"><div class="card-h" onclick="togCard('sync')"><h3>☁️ 云端同步</h3><span class="card-tog" id="sync-tog">▼</span></div><div class="card-b" id="sync-body">
     <div class="url-preview">共享内容存于 GitHub 仓库 <strong>jiesenmax-lang/weibo-gen</strong> 的 <strong>pool.json</strong>。<strong>生成 / 删除后自动同步到云端</strong>；其他手机打开本页会<strong>自动拉取最新</strong>，并每 60 秒后台刷新一次，无需逐台手动点同步。</div>
-    <div class="fr"><div class="fg"><label class="fl">GitHub Token <small style="color:#94A3B8;font-weight:400">仅写入云端时需要，留空则只能只读</small></label><input class="fi" id="gh-token" type="password" placeholder="github_pat_..." /></div></div>
+    <div id="sync-status-badge" class="sync-status-badge">检测中...</div>
+    <div class="fr"><div class="fg"><label class="fl">GitHub Token <small style="color:#94A3B8;font-weight:400">写入云端必需；填入后自动保存到本机</small></label><input class="fi" id="gh-token" type="password" placeholder="ghp_..." oninput="saveGhToken();updateSyncStatus()" /></div></div>
     <div class="fr"><div class="fg"><label class="fl">管理密码 <small style="color:#94A3B8;font-weight:400">其他手机需输入此密码才看得到管理后台</small></label><input class="fi" id="admin-pw" type="password" placeholder="默认 jiesen" onblur="saveAdminPw()" /></div></div>
     <div class="cfg-row">
       <button class="btn btn-p" onclick="syncPush()">☁️ 同步到云端</button>
@@ -482,6 +487,14 @@ function toggleAdmin(){isAdmin()?logoutAdmin():tryAdminLogin()}
 function tryAdminLogin(){const pw=prompt('请输入管理密码：');if(pw===null)return;if(pw===getAdminPw()){localStorage.setItem(SK.adminSession,'1');applyMode();toast('已进入管理后台','ok')}else{toast('密码错误','er')}}
 function logoutAdmin(){localStorage.removeItem(SK.adminSession);applyMode();toast('已退出管理','in')}
 function saveAdminPw(){const v=document.getElementById('admin-pw').value.trim();if(v)localStorage.setItem(SK.adminPw,v);toast('管理密码已更新','ok')}
+function saveGhToken(){const v=document.getElementById('gh-token').value.trim();if(v){localStorage.setItem(SK.ghToken,v);updateSyncStatus()}else{localStorage.removeItem(SK.ghToken);updateSyncStatus()}}
+function getGhToken(){return document.getElementById('gh-token').value.trim()||localStorage.getItem(SK.ghToken)||''}
+function updateSyncStatus(){
+  const token=getGhToken();
+  const el=document.getElementById('sync-status-badge');if(!el)return;
+  if(!token){el.className='sync-status-badge warn';el.textContent='🟡 未配置 GitHub Token，生成后不会自动同步到云端';return}
+  el.className='sync-status-badge ok';el.textContent='🟢 已配置 GitHub Token，生成 / 删除后会自动同步到云端';
+}
 function applyMode(){
   const admin=isAdmin();
   document.body.classList.toggle('admin',admin);
@@ -504,7 +517,7 @@ async function ghGetPool(){
   }catch(e){toast('云端读取失败：'+e.message,'er');return [];}
 }
 async function ghPutPool(arr){
-  const token=document.getElementById('gh-token').value.trim()||localStorage.getItem(SK.ghToken)||'';
+  const token=getGhToken();
   if(!token){toast('请先在「云端同步」填写 GitHub Token','er');return false;}
   localStorage.setItem(SK.ghToken,token);
   const url='https://api.github.com/repos/'+CLOUD.repo+'/contents/'+CLOUD.path;
@@ -523,11 +536,12 @@ async function loadCloudPool(){cloudPool=await ghGetPool();cloudLoaded=true;cons
 async function copyText(text){try{await navigator.clipboard.writeText(text);return}catch{try{const ta=document.createElement('textarea');ta.value=text;ta.style.cssText='position:fixed;left:-9999px';document.body.appendChild(ta);ta.select();document.execCommand&&document.execCommand('copy');document.body.removeChild(ta)}catch{}}}
 
 // ==================== 自动同步 ====================
+let autoPushWarned=false;
 // 管理端：本地内容变更后，若已配置 Token，静默推送到云端（不弹 loading）
 async function autoPush(){
   if(!isAdmin())return;
-  const token=document.getElementById('gh-token').value.trim()||localStorage.getItem(SK.ghToken)||'';
-  if(!token)return;            // 没配 token 就不自动推，避免误报错
+  const token=getGhToken();
+  if(!token){if(!autoPushWarned){autoPushWarned=true;toast('未配置 GitHub Token，已跳过自动同步。请在「云端同步」填写 Token','er')}return;}
   const local=loadPool();
   const ok=await ghPutPool(local);
   if(ok){cloudPool=[...local];cloudLoaded=true;}
@@ -727,6 +741,7 @@ document.addEventListener('DOMContentLoaded',()=>{
   const gt=localStorage.getItem(SK.ghToken);if(gt)document.getElementById('gh-token').value=gt;
   const ap=localStorage.getItem(SK.adminPw);if(ap)document.getElementById('admin-pw').value=ap;
   const mp=localStorage.getItem(SK.mp);if(mp)document.getElementById('cfg-models-path').value=mp;
+  updateSyncStatus();
   // 应用当前模式（管理端 / 展示端）
   applyMode();
   // 加载云端共享内容（展示端展示、管理端参考）
