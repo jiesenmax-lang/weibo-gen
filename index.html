@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<meta name="version" content="v20260717b-weibo-gen">
+<meta name="version" content="v20260718a-weibo-gen">
 <title>微博养号内容生成器</title>
 <style>
 :root{--c1:#4F46E5;--c1h:#4338CA;--c1l:#EEF2FF;--ok:#10B981;--err:#EF4444;--bg:#F1F5F9;--card:#FFF;--txt:#1E293B;--txt2:#64748B;--bdr:#E2E8F0;--r:12px;--rs:8px;--sh:0 1px 3px rgba(0,0,0,.08);--shm:0 4px 12px rgba(0,0,0,.1);--shl:0 10px 25px rgba(0,0,0,.12);--tr:all .25s ease}
@@ -172,7 +172,6 @@ body.admin .bb.admin-only{display:flex}
     <div class="url-preview">共享内容存于 GitHub 仓库 <strong>jiesenmax-lang/weibo-gen</strong> 的 <strong>pool.json</strong>。<strong>生成 / 删除后自动同步到云端</strong>；其他手机打开本页会<strong>自动拉取最新</strong>，并每 60 秒后台刷新一次，无需逐台手动点同步。</div>
     <div id="sync-status-badge" class="sync-status-badge">检测中...</div>
     <div class="url-preview" id="sync-url-hint">当前页面地址：<strong>-</strong>。其他设备请打开<strong>完全相同</strong>的地址，才能看到云端内容。</div>
-    <div class="fr"><div class="fg"><label class="fl">GitHub Token <small style="color:#94A3B8;font-weight:400">写入云端必需；填入后自动保存到本机</small></label><input class="fi" id="gh-token" type="password" placeholder="ghp_..." oninput="saveGhToken();updateSyncStatus()" /></div></div>
     <div class="fr"><div class="fg"><label class="fl">管理密码 <small style="color:#94A3B8;font-weight:400">其他手机需输入此密码才看得到管理后台</small></label><input class="fi" id="admin-pw" type="password" placeholder="默认 jiesen" onblur="saveAdminPw()" /></div></div>
     <div class="cfg-row">
       <button class="btn btn-p" onclick="syncPush()">☁️ 同步到云端</button>
@@ -180,6 +179,11 @@ body.admin .bb.admin-only{display:flex}
       <button class="btn btn-o" onclick="refreshCloud()">🔄 刷新</button>
     </div>
     <div class="url-preview" id="cloud-status" style="margin-bottom:0">云端状态：未同步</div>
+  </div></div>
+
+  <div class="card" id="token-card"><div class="card-h"><h3>🔑 云端写入 Token</h3><span class="card-tog" id="token-tog">▼</span></div><div class="card-b" id="token-body">
+    <div class="url-preview">复制即视为「已使用」，会从云端 <strong>删除该条</strong>，其他手机也不再出现。请填入对本仓库有写权限的 GitHub Token（自动保存到本机，仅本机可见；<strong>不填则仅本机不再显示</strong>）。</div>
+    <div class="fr"><div class="fg"><label class="fl">GitHub Token <small style="color:#94A3B8;font-weight:400">选填；用于复制即删云端</small></label><input class="fi" id="gh-token" type="password" placeholder="ghp_..." oninput="saveGhToken();updateSyncStatus()" /></div></div>
   </div></div>
 
   <div class="cdis" id="cdis"><div class="cdis-h"><h3>📄 当前内容</h3><span class="cdis-cnt" id="cdis-cnt">0 / 0</span></div><div class="cdis-b" id="cdis-body"><div class="emp" id="emp-msg"><span class="bi">📭</span><div>库存为空</div></div><div class="cdis-txt" id="cdis-txt" style="display:none;"></div><div class="cdis-cc" id="cdis-cc" style="display:none;"></div></div><div class="ab" id="ab" style="display:none;"><button class="btn btn-o" onclick="showPrev()" id="btn-prev">⬅ 上一条</button><button class="btn btn-g" onclick="copyOnly()" id="btn-copy">📋 复制</button><button class="btn btn-o" onclick="showNext()" id="btn-next">下一条 ➡</button><button class="btn btn-d" onclick="delCur()" id="btn-del">🗑️</button></div></div>
@@ -214,7 +218,7 @@ body.admin .bb.admin-only{display:flex}
 <script>
 // ==================== 存储键名 ====================
 if(typeof structuredClone!=='function'){structuredClone=function(o){return JSON.parse(JSON.stringify(o))}}
-const SK={api:'wbg_api_v3',cfg:'wbg_cfg',pool:'wbg_pool',used:'wbg_used',idx:'wbg_idx',bw:'wbg_bw_v2',ptm:'wbg_ptm_v2',ptmAct:'wbg_ptm_act_v2',ghToken:'wbg_gh_token',adminSession:'wbg_admin_session',adminPw:'wbg_admin_pw',mp:'wbg_mp'};
+const SK={api:'wbg_api_v3',cfg:'wbg_cfg',pool:'wbg_pool',used:'wbg_used',idx:'wbg_idx',bw:'wbg_bw_v2',ptm:'wbg_ptm_v2',ptmAct:'wbg_ptm_act_v2',ghToken:'wbg_gh_token',adminSession:'wbg_admin_session',adminPw:'wbg_admin_pw',mp:'wbg_mp',consumed:'wbg_consumed'};
 let isGen=false;
 let bwWords=[];
 const ADMIN_PW_DEFAULT='jiesen';
@@ -568,6 +572,12 @@ function loadUsed(){return parseInt(localStorage.getItem(SK.used)||'0')}
 function saveUsed(c){localStorage.setItem(SK.used,String(c))}
 function loadIdx(){return parseInt(localStorage.getItem(SK.idx)||'0')}
 function saveIdx(i){localStorage.setItem(SK.idx,String(i))}
+// 已消费（复制过）的内容：持久化到本机，刷新后从云端拉回也按此过滤，绝不二次出现
+function loadConsumed(){try{const a=JSON.parse(localStorage.getItem(SK.consumed)||'[]');return Array.isArray(a)?a:[]}catch{return[]}}
+function saveConsumed(a){localStorage.setItem(SK.consumed,JSON.stringify(a))}
+function consumedSet(){return new Set(loadConsumed())}
+// 展示端实际可看的内容 = 云端原始池 - 本机已消费
+function displayPool(){const cs=consumedSet();return cloudPool.filter(x=>!cs.has(x))}
 
 // ==================== 生成 ====================
 function buildUserPrompt(count){
@@ -679,7 +689,7 @@ async function batchGen(){
 }
 function showContent(){
   const admin=isAdmin();
-  const pool=admin?loadPool():cloudPool;
+  const pool=admin?loadPool():displayPool();
   const emp=document.getElementById('emp-msg');const txt=document.getElementById('cdis-txt');const cc=document.getElementById('cdis-cc');const ab=document.getElementById('ab');const cnt=document.getElementById('cdis-cnt');const d=document.getElementById('cdis');
   if(pool.length===0){d.classList.add('empty');emp.style.display='';txt.style.display='none';cc.style.display='none';ab.style.display='none';cnt.textContent='0 / 0';return;}
   d.classList.remove('empty');emp.style.display='none';txt.style.display='';cc.style.display='';ab.style.display='';
@@ -695,23 +705,39 @@ function showContent(){
   cc.textContent='字数：'+chars+' 字（目标 250-300）'+warn;
   cnt.textContent=(idx+1)+' / '+pool.length;
 }
-function showPrev(){const admin=isAdmin();const pool=admin?loadPool():cloudPool;if(!pool.length)return;let i=admin?loadIdx():cloudIdx;i--;if(i<0)i=pool.length-1;if(admin)saveIdx(i);else cloudIdx=i;showContent()}
-function showNext(){const admin=isAdmin();const pool=admin?loadPool():cloudPool;if(!pool.length)return;let i=admin?loadIdx():cloudIdx;i++;if(i>=pool.length)i=0;if(admin)saveIdx(i);else cloudIdx=i;showContent()}
+function showPrev(){const admin=isAdmin();const pool=admin?loadPool():displayPool();if(!pool.length)return;let i=admin?loadIdx():cloudIdx;i--;if(i<0)i=pool.length-1;if(admin)saveIdx(i);else cloudIdx=i;showContent()}
+function showNext(){const admin=isAdmin();const pool=admin?loadPool():displayPool();if(!pool.length)return;let i=admin?loadIdx():cloudIdx;i++;if(i>=pool.length)i=0;if(admin)saveIdx(i);else cloudIdx=i;showContent()}
 async function copyOnly(){
   const admin=isAdmin();
-  const pool=admin?loadPool():cloudPool;
+  const pool=admin?loadPool():displayPool();
   if(!pool.length)return;
   const idx=admin?loadIdx():cloudIdx;
   const text=cleanText(pool[idx]||pool[0]);
+  const raw=pool[idx]||pool[0];
   await copyText(text);
   if(admin){
     pool.splice(idx,1);savePool(pool);saveUsed(loadUsed()+1);
     let ni=loadIdx();if(ni>=pool.length&&pool.length>0)ni=0;saveIdx(ni);
     updateUI();autoPush();toast('已复制并删除 ✓ 剩余'+pool.length+'条','ok');
   }else{
+    // 复制 = 已使用：① 记入本机已消费，刷新后云端拉回也按此过滤，绝不再显示
+    const cons=loadConsumed();if(!cons.includes(raw))cons.push(raw);saveConsumed(cons);
     saveUsed(loadUsed()+1);
-    if(cloudIdx<cloudPool.length-1)cloudIdx++;else cloudIdx=0;
-    showContent();toast('已复制 ✓','ok');
+    // ② 从内存云端池移除该条
+    const ci=cloudPool.indexOf(raw);if(ci>=0)cloudPool.splice(ci,1);
+    // ③ 有 Token 则写回云端，真正从“数据库”删除，所有设备都不再出现
+    const tok=getGhToken();
+    if(tok){
+      ghPutPool(cloudPool).then(ok=>{
+        if(ok){cloudLoaded=true;toast('已复制并从云端删除 ✓ 剩余'+displayPool().length+'条','ok');}
+        else{toast('已复制（本机已记录，云端删除失败，请检查 Token）','er');}
+      });
+    }else{
+      toast('已复制并标记已用 ✓（本机不再显示；填 Token 可同步删除云端）','ok');
+    }
+    // 索引收拢，避免越界
+    const vis=displayPool();if(cloudIdx>=vis.length)cloudIdx=Math.max(0,vis.length-1);
+    showContent();
   }
 }
 function delCur(){const pool=loadPool();if(!pool.length)return;const idx=loadIdx()%pool.length;pool.splice(idx,1);savePool(pool);let ni=loadIdx();if(ni>=pool.length&&pool.length>0)ni=0;saveIdx(ni);saveUsed(loadUsed()+1);updateUI();autoPush();toast('已删除','in')}
@@ -719,7 +745,7 @@ function clearPool(){if(!confirm('确定清空所有缓存？'))return;savePool(
 function cleanPool(){const pool=loadPool();if(!pool.length){toast('缓存为空','in');return;}const cleaned=pool.map(item=>cleanText(item)).filter(s=>s.length>20);savePool(cleaned);toast('已清理 '+pool.length+'→'+cleaned.length+' 条','ok');updateUI();}
 
 // ==================== UI ====================
-function updateUI(){const admin=isAdmin();const pool=admin?loadPool():cloudPool;const used=loadUsed();document.getElementById('st-pool-n').textContent=pool.length;document.getElementById('st-used-n').textContent=used;const c=document.getElementById('st-pool');pool.length===0?c.classList.add('warn'):c.classList.remove('warn');document.getElementById('st-status-n').textContent=admin?'管理端':(cloudLoaded?'云端':'加载中');showContent()}
+function updateUI(){const admin=isAdmin();const pool=admin?loadPool():displayPool();const used=loadUsed();document.getElementById('st-pool-n').textContent=pool.length;document.getElementById('st-used-n').textContent=used;const c=document.getElementById('st-pool');pool.length===0?c.classList.add('warn'):c.classList.remove('warn');document.getElementById('st-status-n').textContent=admin?'管理端':(cloudLoaded?'云端':'加载中');showContent()}
 
 // ==================== 初始化 ====================
 document.addEventListener('DOMContentLoaded',()=>{
@@ -750,7 +776,7 @@ document.addEventListener('DOMContentLoaded',()=>{
   // 启动展示端自动拉取（每 60 秒 + 切回标签页时）
   startCloudSync();
   // 默认折叠
-  togCard('api',false);togCard('bw',false);togCard('ptm',false);togCard('sync',false);
+  togCard('api',false);togCard('bw',false);togCard('ptm',false);togCard('sync',false);togCard('token',false);
 });
 </script>
 </body>
