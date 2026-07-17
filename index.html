@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<meta name="version" content="v20260718e-weibo-gen">
+<meta name="version" content="v20260718f-weibo-gen">
 <title>微博养号内容生成器</title>
 <style>
 :root{--c1:#4F46E5;--c1h:#4338CA;--c1l:#EEF2FF;--ok:#10B981;--err:#EF4444;--bg:#F1F5F9;--card:#FFF;--txt:#1E293B;--txt2:#64748B;--bdr:#E2E8F0;--r:12px;--rs:8px;--sh:0 1px 3px rgba(0,0,0,.08);--shm:0 4px 12px rgba(0,0,0,.1);--shl:0 10px 25px rgba(0,0,0,.12);--tr:all .25s ease}
@@ -109,7 +109,8 @@ body.admin .bb.admin-only{display:flex}
 .hdr-actions{margin-top:8px}
 .admin-btn{display:inline-block;font-size:11px;background:rgba(255,255,255,.22);color:#fff;border:1px solid rgba(255,255,255,.45);padding:4px 14px;border-radius:14px;cursor:pointer;font-family:inherit;transition:var(--tr)}
 .admin-btn:hover{background:rgba(255,255,255,.35)}
-.sync-card .url-preview{margin-bottom:10px}
+.footer{text-align:center;padding:20px 10px 30px;font-size:11px;color:var(--txt2);opacity:.75}
+.footer code{font-family:inherit;background:#E2E8F0;padding:2px 6px;border-radius:4px;color:var(--txt1);font-size:10px}
 .sync-status-badge{display:inline-block;font-size:12px;font-weight:500;padding:6px 10px;border-radius:20px;margin-bottom:10px}
 .sync-status-badge.ok{background:#D1FAE5;color:#065F46}
 .sync-status-badge.warn{background:#FEF3C7;color:#92400E}
@@ -214,6 +215,8 @@ body.admin .bb.admin-only{display:flex}
 
 <div class="ldo" id="ldo"><div class="ldbx"><div class="ldsp"></div><div class="ldt" id="ldt">生成中...</div></div></div>
 <div class="toast" id="toast"></div>
+
+<div class="footer" id="footer">微博养号内容生成器 · <span id="footer-version">-</span></div>
 
 <script>
 // ==================== 存储键名 ====================
@@ -680,6 +683,12 @@ function cleanText(s){
     else if(' .,!?;:\'"()-'.indexOf(c)>=0)result+=c;
   }
   result=result.replace(/  +/g,' ').replace(/\n{3,}/g,'\n\n').trim();
+  // 去掉开头/结尾孤立的标点符号与 markdown 分隔线，避免",内容"或"---"结尾
+  result=result.replace(/^[,.，。、！？：；\"“”‘’（）\[\]\-—_\s]+|[,.，。、！？：；\"“”‘’（）\[\]\-—_\s]+$/g,'');
+  result=result.replace(/\n\s*(?:[-—_]){2,}\s*$/g,'').replace(/^\s*(?:[-—_]){2,}\s*\n/g,'');
+  // 去掉行首的 markdown 列表标记（如 "- 内容" / "1. 内容" / "* 内容"），但保留内容
+  result=result.split('\n').map(line=>line.replace(/^[\s]*(?:[-*]|\d+\.)\s+/,'').replace(/^#+\s+/,'')).join('\n');
+  result=result.replace(/\n{3,}/g,'\n\n').trim();
   return result;
 }
 function parseItems(raw,count){
@@ -831,6 +840,10 @@ document.addEventListener('DOMContentLoaded',()=>{
   startCloudSync();
   // 默认折叠
   togCard('api',false);togCard('bw',false);togCard('ptm',false);togCard('sync',false);
+  // 底部版本号
+  const vm=document.querySelector('meta[name="version"]');
+  const fv=document.getElementById('footer-version');
+  if(vm&&fv)fv.textContent=vm.content;
 });
 </script>
 </body>
