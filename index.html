@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<meta name="version" content="v20260718h-weibo-gen">
+<meta name="version" content="v20260718i-weibo-gen">
 <title>微博养号内容生成器</title>
 <style>
 :root{--c1:#4F46E5;--c1h:#4338CA;--c1l:#EEF2FF;--ok:#10B981;--err:#EF4444;--bg:#F1F5F9;--card:#FFF;--txt:#1E293B;--txt2:#64748B;--bdr:#E2E8F0;--r:12px;--rs:8px;--sh:0 1px 3px rgba(0,0,0,.08);--shm:0 4px 12px rgba(0,0,0,.1);--shl:0 10px 25px rgba(0,0,0,.12);--tr:all .25s ease}
@@ -682,9 +682,13 @@ function cleanText(s){
     else if(' .,!?;:\'"()-'.indexOf(c)>=0)result+=c;
   }
   result=result.replace(/  +/g,' ').replace(/\n{3,}/g,'\n\n').trim();
-  // 去掉开头/结尾孤立的标点符号与 markdown 分隔线，避免",内容"或"---"结尾
-  result=result.replace(/^[,.，。、！？：；\"“”‘’（）\[\]\-—_\s]+|[,.，。、！？：；\"“”‘’（）\[\]\-—_\s]+$/g,'');
-  result=result.replace(/\n\s*(?:[-—_]){2,}\s*$/g,'').replace(/^\s*(?:[-—_]){2,}\s*\n/g,'');
+  // 仅去除开头/结尾的 markdown 分隔线（---/___/***），这是模型产物而非正文，不能误删句末标点
+  result=result.replace(/^\s*(?:[-—_*•]){2,}\s*/,'');
+  result=result.replace(/\s*(?:[-—_*•]){2,}\s*$/,'');
+  // 仅去除开头偶发的孤立逗号/顿号（如模型生成的 ",今天..."），保留正文正常标点
+  result=result.replace(/^[，、]\s*/,'');
+  // 仅去除结尾偶发的孤立逗号/连字符（非句末标点），保留 。！？：； 等正常句末标点
+  result=result.replace(/[，、,_\-]\s*$/,'');
   // 去掉行首的 markdown 列表标记（如 "- 内容" / "1. 内容" / "* 内容"），但保留内容
   result=result.split('\n').map(line=>line.replace(/^[\s]*(?:[-*]|\d+\.)\s+/,'').replace(/^#+\s+/,'')).join('\n');
   result=result.replace(/\n{3,}/g,'\n\n').trim();
