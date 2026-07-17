@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<meta name="version" content="v20260718g-weibo-gen">
+<meta name="version" content="v20260718h-weibo-gen">
 <title>微博养号内容生成器</title>
 <style>
 :root{--c1:#4F46E5;--c1h:#4338CA;--c1l:#EEF2FF;--ok:#10B981;--err:#EF4444;--bg:#F1F5F9;--card:#FFF;--txt:#1E293B;--txt2:#64748B;--bdr:#E2E8F0;--r:12px;--rs:8px;--sh:0 1px 3px rgba(0,0,0,.08);--shm:0 4px 12px rgba(0,0,0,.1);--shl:0 10px 25px rgba(0,0,0,.12);--tr:all .25s ease}
@@ -568,10 +568,10 @@ async function removeFromCloud(raw){
   }
   toast('同步失败：并发冲突，请稍后重试','er');return false;
 }
-async function syncPush(){const local=loadPool();if(local.length===0){toast('本地暂无内容可同步','er');return}showLd('同步到云端...');const ok=await ghPutPool(local);hideLd();if(ok){cloudPool=[...local];cloudLoaded=true;toast('已同步到云端 ✓','ok')}}
-async function syncPull(){showLd('从云端拉取...');const cloud=await ghGetPool();hideLd();if(!cloud)return;const local=loadPool();const set=new Set(local);cloud.forEach(x=>{if(!set.has(x))local.push(x)});savePool(local);const cs=document.getElementById('cloud-status');if(cs)cs.textContent='云端状态：已拉取 '+cloud.length+' 条';updateUI();toast('已从云端拉取，本地共 '+local.length+' 条','ok')}
-async function refreshCloud(){showLd('刷新云端...');cloudPool=await ghGetPool();cloudLoaded=true;hideLd();if(!isAdmin()){syncView();updateUI();}toast('云端已刷新','ok')}
-async function loadCloudPool(){cloudPool=await ghGetPool();cloudLoaded=true;const cs=document.getElementById('cloud-status');if(cs)cs.textContent='云端状态：已加载 '+cloudPool.length+' 条';if(!isAdmin()){syncView();updateUI();}}
+async function syncPush(){showLd('同步到云端...');const ok=await ghPutPool(cloudPool);hideLd();if(ok){cloudLoaded=true;toast('已同步到云端 ✓','ok')}else toast('同步失败','er')}
+async function syncPull(){showLd('从云端拉取...');cloudPool=await ghGetPool();cloudLoaded=true;hideLd();syncView();updateUI();const cs=document.getElementById('cloud-status');if(cs)cs.textContent='云端状态：已拉取 '+cloudPool.length+' 条';toast('已从云端拉取，云端共 '+cloudPool.length+' 条','ok')}
+async function refreshCloud(){showLd('刷新云端...');cloudPool=await ghGetPool();cloudLoaded=true;hideLd();syncView();updateUI();toast('云端已刷新','ok')}
+async function loadCloudPool(){cloudPool=await ghGetPool();cloudLoaded=true;const cs=document.getElementById('cloud-status');if(cs)cs.textContent='云端状态：已加载 '+cloudPool.length+' 条';syncView();updateUI();}
 async function copyText(text){try{await navigator.clipboard.writeText(text);return}catch{try{const ta=document.createElement('textarea');ta.value=text;ta.style.cssText='position:fixed;left:-9999px';document.body.appendChild(ta);ta.select();document.execCommand&&document.execCommand('copy');document.body.removeChild(ta)}catch{}}}
 
 // ==================== 自动同步 ====================
@@ -605,11 +605,10 @@ function syncView(){
   if(cloudIdx<0)cloudIdx=0;
 }
 async function pollCloud(){
-  if(isAdmin())return;        // 管理端以本地为准，不被动覆盖
   if(cloudWriting)return;     // 写云端进行中：跳过本次轮询，避免把未完成的删除覆盖回去
   const fresh=await ghGetPool();
   const a=JSON.stringify(fresh),b=JSON.stringify(cloudPool);
-  if(a!==b){cloudPool=fresh;cloudLoaded=true;if(!isAdmin())syncView();if(cloudIdx>=cloudPool.length)cloudIdx=0;if(!isAdmin())updateUI();toast('云端内容已更新 ✓','in')}
+  if(a!==b){cloudPool=fresh;cloudLoaded=true;syncView();if(cloudIdx>=cloudPool.length)cloudIdx=0;updateUI();if(!isAdmin())toast('云端内容已更新 ✓','in')}
 }
 function startCloudSync(){
   if(cloudPollTimer)return;
@@ -716,7 +715,7 @@ async function genOneBatch(count){
 }
 async function genContent(totalCount){
   const c=getActiveCfg();if(!c||!c.key||!c.baseUrl){toast('请先配置 API','er');return null}
-  const perBatch=10; // 每批10条，避免token不够
+  const perBatch=5; // 每批5条：单次输出受模型 max_output 限制，超过易截断导致生成失败
   const results=[];
   let attempts=0;
   showLd('正在生成 0/'+totalCount+' 条...');
@@ -746,13 +745,13 @@ async function batchGen(){
   const c=getActiveCfg();if(!c||!c.key||!c.baseUrl){toast('请先配置 API','er');return}
   isGen=true;document.getElementById('btn-gen').disabled=true;
   const items=await genContent(count);
-  if(items&&items.length>0){const pool=loadPool();pool.push(...items);savePool(pool);let msg='生成 '+items.length+' 条，缓存共 '+pool.length+' 条';if(items.length<count)msg+='（已自动过滤字数异常内容，可再次点击生成补充）';toast(msg,'ok');updateUI();autoPush()}
+  if(items&&items.length>0){cloudPool.push(...items);savePool(cloudPool);let msg='生成 '+items.length+' 条，云端共 '+cloudPool.length+' 条';if(items.length<count)msg+='（已自动过滤字数异常内容，可再次点击生成补充）';updateUI();const ok=await ghPutPool(cloudPool);cloudLoaded=true;toast(msg,'ok')}
   isGen=false;document.getElementById('btn-gen').disabled=false;
 }
 function showContent(){
   const admin=isAdmin();
   if(!admin && viewOrder.length===0 && displayPool().length>0)syncView(); // 安全网：顺序未初始化时补一次洗牌
-  const pool=admin?loadPool():viewOrder;
+  const pool=admin?cloudPool:viewOrder;
   const emp=document.getElementById('emp-msg');const txt=document.getElementById('cdis-txt');const cc=document.getElementById('cdis-cc');const ab=document.getElementById('ab');const cnt=document.getElementById('cdis-cnt');const d=document.getElementById('cdis');
   if(pool.length===0){d.classList.add('empty');emp.style.display='';txt.style.display='none';cc.style.display='none';ab.style.display='none';cnt.textContent='0 / 0';return;}
   d.classList.remove('empty');emp.style.display='none';txt.style.display='';cc.style.display='';ab.style.display='';
@@ -768,20 +767,21 @@ function showContent(){
   cc.textContent='字数：'+chars+' 字（目标 250-300）'+warn;
   cnt.textContent=(idx+1)+' / '+pool.length;
 }
-function showPrev(){const admin=isAdmin();const pool=admin?loadPool():viewOrder;if(!pool.length)return;let i=admin?loadIdx():cloudIdx;i--;if(i<0)i=pool.length-1;if(admin)saveIdx(i);else cloudIdx=i;showContent()}
-function showNext(){const admin=isAdmin();const pool=admin?loadPool():viewOrder;if(!pool.length)return;let i=admin?loadIdx():cloudIdx;i++;if(i>=pool.length)i=0;if(admin)saveIdx(i);else cloudIdx=i;showContent()}
+function showPrev(){const admin=isAdmin();const pool=admin?cloudPool:viewOrder;if(!pool.length)return;let i=admin?loadIdx():cloudIdx;i--;if(i<0)i=pool.length-1;if(admin)saveIdx(i);else cloudIdx=i;showContent()}
+function showNext(){const admin=isAdmin();const pool=admin?cloudPool:viewOrder;if(!pool.length)return;let i=admin?loadIdx():cloudIdx;i++;if(i>=pool.length)i=0;if(admin)saveIdx(i);else cloudIdx=i;showContent()}
 async function copyOnly(){
   const admin=isAdmin();
-  const pool=admin?loadPool():viewOrder;
+  const pool=admin?cloudPool:viewOrder;
   if(!pool.length)return;
   const idx=admin?loadIdx():cloudIdx;
   const text=cleanText(pool[idx]||pool[0]);
   const raw=pool[idx]||pool[0];
   await copyText(text);
   if(admin){
-    pool.splice(idx,1);savePool(pool);saveUsed(loadUsed()+1);
-    let ni=loadIdx();if(ni>=pool.length&&pool.length>0)ni=0;saveIdx(ni);
-    updateUI();autoPush();toast('已复制并删除 ✓ 剩余'+pool.length+'条','ok');
+    const ci=cloudPool.indexOf(raw);if(ci>=0)cloudPool.splice(ci,1);
+    savePool(cloudPool);saveUsed(loadUsed()+1);
+    let ni=loadIdx();if(ni>=cloudPool.length&&cloudPool.length>0)ni=0;saveIdx(ni);
+    updateUI();const ok=await ghPutPool(cloudPool);cloudLoaded=true;toast('已复制并删除 ✓ 剩余'+cloudPool.length+'条','ok');
   }else{
     // 复制 = 已使用：记入本机已消费，刷新后云端拉回也按此过滤，绝不再显示
     const cons=loadConsumed();if(!cons.includes(raw))cons.push(raw);saveConsumed(cons);
@@ -806,12 +806,31 @@ async function copyOnly(){
     showContent();
   }
 }
-function delCur(){const pool=loadPool();if(!pool.length)return;const idx=loadIdx()%pool.length;pool.splice(idx,1);savePool(pool);let ni=loadIdx();if(ni>=pool.length&&pool.length>0)ni=0;saveIdx(ni);saveUsed(loadUsed()+1);updateUI();autoPush();toast('已删除','in')}
-function clearPool(){if(!confirm('确定清空所有缓存？'))return;savePool([]);saveIdx(0);updateUI();autoPush();toast('已清空','in')}
+async function delCur(){
+  const admin=isAdmin();
+  const pool=admin?cloudPool:viewOrder;
+  if(!pool.length)return;
+  let idx=admin?loadIdx():cloudIdx;if(idx>=pool.length)idx=0;
+  const target=pool[idx];
+  saveUsed(loadUsed()+1);
+  if(admin){
+    const ci=cloudPool.indexOf(target);if(ci>=0)cloudPool.splice(ci,1);
+    let ni=loadIdx();if(ni>=cloudPool.length&&cloudPool.length>0)ni=0;saveIdx(ni);
+    savePool(cloudPool);updateUI();const ok=await ghPutPool(cloudPool);cloudLoaded=true;
+  }else{
+    const vi=viewOrder.indexOf(target);if(vi>=0)viewOrder.splice(vi,1);
+    if(cloudIdx>=viewOrder.length)cloudIdx=Math.max(0,viewOrder.length-1);
+    const tok=getGhToken();
+    if(tok){cloudWriting=true;try{await removeFromCloud(target);}catch(e){}finally{cloudWriting=false;}}
+    updateUI();
+  }
+  toast('已删除','in');
+}
+async function clearPool(){if(!confirm('确定清空所有缓存？'))return;cloudPool=[];savePool([]);saveIdx(0);updateUI();const ok=await ghPutPool([]);cloudLoaded=true;if(ok)toast('已清空 ✓','in');else toast('已清空本地，云端同步失败','er')}
 function cleanPool(){const pool=loadPool();if(!pool.length){toast('缓存为空','in');return;}const cleaned=pool.map(item=>cleanText(item)).filter(s=>s.length>20);savePool(cleaned);toast('已清理 '+pool.length+'→'+cleaned.length+' 条','ok');updateUI();}
 
 // ==================== UI ====================
-function updateUI(){const admin=isAdmin();const pool=admin?loadPool():displayPool();const used=loadUsed();document.getElementById('st-pool-n').textContent=pool.length;document.getElementById('st-used-n').textContent=used;const c=document.getElementById('st-pool');pool.length===0?c.classList.add('warn'):c.classList.remove('warn');document.getElementById('st-status-n').textContent=admin?'管理端':(cloudLoaded?'云端':'加载中');showContent()}
+function updateUI(){const admin=isAdmin();const pool=admin?cloudPool:displayPool();const used=loadUsed();document.getElementById('st-pool-n').textContent=pool.length;document.getElementById('st-used-n').textContent=used;const c=document.getElementById('st-pool');pool.length===0?c.classList.add('warn'):c.classList.remove('warn');document.getElementById('st-status-n').textContent=admin?'管理端(云端)':(cloudLoaded?'云端':'加载中');showContent()}
 
 // ==================== 初始化 ====================
 document.addEventListener('DOMContentLoaded',()=>{
