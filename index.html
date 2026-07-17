@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<meta name="version" content="v20260718d-weibo-gen">
+<meta name="version" content="v20260718e-weibo-gen">
 <title>微博养号内容生成器</title>
 <style>
 :root{--c1:#4F46E5;--c1h:#4338CA;--c1l:#EEF2FF;--ok:#10B981;--err:#EF4444;--bg:#F1F5F9;--card:#FFF;--txt:#1E293B;--txt2:#64748B;--bdr:#E2E8F0;--r:12px;--rs:8px;--sh:0 1px 3px rgba(0,0,0,.08);--shm:0 4px 12px rgba(0,0,0,.1);--shl:0 10px 25px rgba(0,0,0,.12);--tr:all .25s ease}
@@ -567,8 +567,8 @@ async function removeFromCloud(raw){
 }
 async function syncPush(){const local=loadPool();if(local.length===0){toast('本地暂无内容可同步','er');return}showLd('同步到云端...');const ok=await ghPutPool(local);hideLd();if(ok){cloudPool=[...local];cloudLoaded=true;toast('已同步到云端 ✓','ok')}}
 async function syncPull(){showLd('从云端拉取...');const cloud=await ghGetPool();hideLd();if(!cloud)return;const local=loadPool();const set=new Set(local);cloud.forEach(x=>{if(!set.has(x))local.push(x)});savePool(local);const cs=document.getElementById('cloud-status');if(cs)cs.textContent='云端状态：已拉取 '+cloud.length+' 条';updateUI();toast('已从云端拉取，本地共 '+local.length+' 条','ok')}
-async function refreshCloud(){showLd('刷新云端...');cloudPool=await ghGetPool();cloudLoaded=true;hideLd();if(!isAdmin())updateUI();toast('云端已刷新','ok')}
-async function loadCloudPool(){cloudPool=await ghGetPool();cloudLoaded=true;const cs=document.getElementById('cloud-status');if(cs)cs.textContent='云端状态：已加载 '+cloudPool.length+' 条';if(!isAdmin())updateUI();}
+async function refreshCloud(){showLd('刷新云端...');cloudPool=await ghGetPool();cloudLoaded=true;hideLd();if(!isAdmin()){syncView();updateUI();}toast('云端已刷新','ok')}
+async function loadCloudPool(){cloudPool=await ghGetPool();cloudLoaded=true;const cs=document.getElementById('cloud-status');if(cs)cs.textContent='云端状态：已加载 '+cloudPool.length+' 条';if(!isAdmin()){syncView();updateUI();}}
 async function copyText(text){try{await navigator.clipboard.writeText(text);return}catch{try{const ta=document.createElement('textarea');ta.value=text;ta.style.cssText='position:fixed;left:-9999px';document.body.appendChild(ta);ta.select();document.execCommand&&document.execCommand('copy');document.body.removeChild(ta)}catch{}}}
 
 // ==================== 自动同步 ====================
@@ -585,12 +585,28 @@ async function autoPush(){
 // 展示端：定时检测云端是否有更新（生成/删除后自动可见，无需逐台手动拉取）
 let cloudPollTimer=null;
 let cloudWriting=false;   // 写云端进行中：锁住轮询，避免把未完成的删除覆盖回去
+let viewOrder=[];         // 本机随机洗牌后的展示顺序（每台设备不同，避免多设备同时访问撞同一条）
+let viewInit=false;       // 是否已初始化洗牌（首次整体随机排，之后只增量合并）
+function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));const t=a[i];a[i]=a[j];a[j]=t;}return a;}
+// 把云端池（减本机已消费）同步到本机随机顺序：首次整体洗牌；之后保留顺序，只删已没的、随机插新增的
+function syncView(){
+  const pool=displayPool();
+  if(!viewInit){viewOrder=shuffle(pool.slice());viewInit=true;}
+  else{
+    const set=new Set(pool);
+    viewOrder=viewOrder.filter(x=>set.has(x));          // 去掉已被消费/被其他设备删的
+    const ex=new Set(viewOrder);
+    for(const x of pool){if(!ex.has(x)){const at=Math.floor(Math.random()*(viewOrder.length+1));viewOrder.splice(at,0,x);ex.add(x);}} // 新增的随机插入
+  }
+  if(cloudIdx>=viewOrder.length)cloudIdx=Math.max(0,viewOrder.length-1);
+  if(cloudIdx<0)cloudIdx=0;
+}
 async function pollCloud(){
   if(isAdmin())return;        // 管理端以本地为准，不被动覆盖
   if(cloudWriting)return;     // 写云端进行中：跳过本次轮询，避免把未完成的删除覆盖回去
   const fresh=await ghGetPool();
   const a=JSON.stringify(fresh),b=JSON.stringify(cloudPool);
-  if(a!==b){cloudPool=fresh;cloudLoaded=true;if(cloudIdx>=cloudPool.length)cloudIdx=0;updateUI();toast('云端内容已更新 ✓','in')}
+  if(a!==b){cloudPool=fresh;cloudLoaded=true;if(!isAdmin())syncView();if(cloudIdx>=cloudPool.length)cloudIdx=0;if(!isAdmin())updateUI();toast('云端内容已更新 ✓','in')}
 }
 function startCloudSync(){
   if(cloudPollTimer)return;
@@ -723,7 +739,8 @@ async function batchGen(){
 }
 function showContent(){
   const admin=isAdmin();
-  const pool=admin?loadPool():displayPool();
+  if(!admin && viewOrder.length===0 && displayPool().length>0)syncView(); // 安全网：顺序未初始化时补一次洗牌
+  const pool=admin?loadPool():viewOrder;
   const emp=document.getElementById('emp-msg');const txt=document.getElementById('cdis-txt');const cc=document.getElementById('cdis-cc');const ab=document.getElementById('ab');const cnt=document.getElementById('cdis-cnt');const d=document.getElementById('cdis');
   if(pool.length===0){d.classList.add('empty');emp.style.display='';txt.style.display='none';cc.style.display='none';ab.style.display='none';cnt.textContent='0 / 0';return;}
   d.classList.remove('empty');emp.style.display='none';txt.style.display='';cc.style.display='';ab.style.display='';
@@ -739,11 +756,11 @@ function showContent(){
   cc.textContent='字数：'+chars+' 字（目标 250-300）'+warn;
   cnt.textContent=(idx+1)+' / '+pool.length;
 }
-function showPrev(){const admin=isAdmin();const pool=admin?loadPool():displayPool();if(!pool.length)return;let i=admin?loadIdx():cloudIdx;i--;if(i<0)i=pool.length-1;if(admin)saveIdx(i);else cloudIdx=i;showContent()}
-function showNext(){const admin=isAdmin();const pool=admin?loadPool():displayPool();if(!pool.length)return;let i=admin?loadIdx():cloudIdx;i++;if(i>=pool.length)i=0;if(admin)saveIdx(i);else cloudIdx=i;showContent()}
+function showPrev(){const admin=isAdmin();const pool=admin?loadPool():viewOrder;if(!pool.length)return;let i=admin?loadIdx():cloudIdx;i--;if(i<0)i=pool.length-1;if(admin)saveIdx(i);else cloudIdx=i;showContent()}
+function showNext(){const admin=isAdmin();const pool=admin?loadPool():viewOrder;if(!pool.length)return;let i=admin?loadIdx():cloudIdx;i++;if(i>=pool.length)i=0;if(admin)saveIdx(i);else cloudIdx=i;showContent()}
 async function copyOnly(){
   const admin=isAdmin();
-  const pool=admin?loadPool():displayPool();
+  const pool=admin?loadPool():viewOrder;
   if(!pool.length)return;
   const idx=admin?loadIdx():cloudIdx;
   const text=cleanText(pool[idx]||pool[0]);
@@ -757,9 +774,10 @@ async function copyOnly(){
     // 复制 = 已使用：记入本机已消费，刷新后云端拉回也按此过滤，绝不再显示
     const cons=loadConsumed();if(!cons.includes(raw))cons.push(raw);saveConsumed(cons);
     saveUsed(loadUsed()+1);
-    // 内存立即移除，保证本机立刻不显示
+    // 内存立即移除，保证本机立刻不显示（云端池 + 本机随机顺序都移除）
     const ci=cloudPool.indexOf(raw);if(ci>=0)cloudPool.splice(ci,1);
-    const vis=displayPool();if(cloudIdx>=vis.length)cloudIdx=Math.max(0,vis.length-1);
+    const vi=viewOrder.indexOf(raw);if(vi>=0)viewOrder.splice(vi,1);
+    if(cloudIdx>=viewOrder.length)cloudIdx=Math.max(0,viewOrder.length-1);
     const tok=getGhToken();
     if(tok){
       cloudWriting=true;            // 锁住轮询，避免覆盖未完成的删除
