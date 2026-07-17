@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<meta name="version" content="v20260718f-weibo-gen">
+<meta name="version" content="v20260718g-weibo-gen">
 <title>微博养号内容生成器</title>
 <style>
 :root{--c1:#4F46E5;--c1h:#4338CA;--c1l:#EEF2FF;--ok:#10B981;--err:#EF4444;--bg:#F1F5F9;--card:#FFF;--txt:#1E293B;--txt2:#64748B;--bdr:#E2E8F0;--r:12px;--rs:8px;--sh:0 1px 3px rgba(0,0,0,.08);--shm:0 4px 12px rgba(0,0,0,.1);--shl:0 10px 25px rgba(0,0,0,.12);--tr:all .25s ease}
@@ -696,7 +696,10 @@ function parseItems(raw,count){
   let items=raw.split(/---\d+---/).map(s=>s.trim()).filter(s=>s.length>20);
   if(items.length<count){const fb=raw.split('===SPLIT===').map(s=>s.trim()).filter(s=>s.length>20);if(fb.length>items.length)items=fb;}
   if(items.length<count){const fb2=raw.split(/\n\s*={2,}\s*\n|\n\s*-{2,}\s*\n/).map(s=>s.trim()).filter(s=>s.length>20);if(fb2.length>items.length)items=fb2;}
-  items=items.map(item=>bwFilter(cleanText(item))).filter(s=>s.length>20);
+  items=items.map(item=>bwFilter(cleanText(item))).filter(s=>{
+    const n=countChinese(s);
+    return s.length>20 && n>=240 && n<=310;   // 过滤字数异常（目标 250-300，留 10 字容差）
+  });
   return items;
 }
 async function genOneBatch(count){
@@ -717,7 +720,7 @@ async function genContent(totalCount){
   const results=[];
   let attempts=0;
   showLd('正在生成 0/'+totalCount+' 条...');
-  while(results.length<totalCount && attempts<Math.ceil(totalCount/perBatch)*3){
+  while(results.length<totalCount && attempts<Math.ceil(totalCount/perBatch)*5){
     attempts++;
     const need=Math.min(perBatch,totalCount-results.length);
     const items=await genOneBatch(need);
@@ -743,7 +746,7 @@ async function batchGen(){
   const c=getActiveCfg();if(!c||!c.key||!c.baseUrl){toast('请先配置 API','er');return}
   isGen=true;document.getElementById('btn-gen').disabled=true;
   const items=await genContent(count);
-  if(items&&items.length>0){const pool=loadPool();pool.push(...items);savePool(pool);toast('生成 '+items.length+' 条，缓存共 '+pool.length+' 条','ok');updateUI();autoPush()}
+  if(items&&items.length>0){const pool=loadPool();pool.push(...items);savePool(pool);let msg='生成 '+items.length+' 条，缓存共 '+pool.length+' 条';if(items.length<count)msg+='（已自动过滤字数异常内容，可再次点击生成补充）';toast(msg,'ok');updateUI();autoPush()}
   isGen=false;document.getElementById('btn-gen').disabled=false;
 }
 function showContent(){
