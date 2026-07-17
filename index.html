@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<meta name="version" content="v20260717-weibo-gen">
+<meta name="version" content="v20260717b-weibo-gen">
 <title>微博养号内容生成器</title>
 <style>
 :root{--c1:#4F46E5;--c1h:#4338CA;--c1l:#EEF2FF;--ok:#10B981;--err:#EF4444;--bg:#F1F5F9;--card:#FFF;--txt:#1E293B;--txt2:#64748B;--bdr:#E2E8F0;--r:12px;--rs:8px;--sh:0 1px 3px rgba(0,0,0,.08);--shm:0 4px 12px rgba(0,0,0,.1);--shl:0 10px 25px rgba(0,0,0,.12);--tr:all .25s ease}
@@ -171,6 +171,7 @@ body.admin .bb.admin-only{display:flex}
   <div class="card admin-only" id="sync-card"><div class="card-h" onclick="togCard('sync')"><h3>☁️ 云端同步</h3><span class="card-tog" id="sync-tog">▼</span></div><div class="card-b" id="sync-body">
     <div class="url-preview">共享内容存于 GitHub 仓库 <strong>jiesenmax-lang/weibo-gen</strong> 的 <strong>pool.json</strong>。<strong>生成 / 删除后自动同步到云端</strong>；其他手机打开本页会<strong>自动拉取最新</strong>，并每 60 秒后台刷新一次，无需逐台手动点同步。</div>
     <div id="sync-status-badge" class="sync-status-badge">检测中...</div>
+    <div class="url-preview" id="sync-url-hint">当前页面地址：<strong>-</strong>。其他设备请打开<strong>完全相同</strong>的地址，才能看到云端内容。</div>
     <div class="fr"><div class="fg"><label class="fl">GitHub Token <small style="color:#94A3B8;font-weight:400">写入云端必需；填入后自动保存到本机</small></label><input class="fi" id="gh-token" type="password" placeholder="ghp_..." oninput="saveGhToken();updateSyncStatus()" /></div></div>
     <div class="fr"><div class="fg"><label class="fl">管理密码 <small style="color:#94A3B8;font-weight:400">其他手机需输入此密码才看得到管理后台</small></label><input class="fi" id="admin-pw" type="password" placeholder="默认 jiesen" onblur="saveAdminPw()" /></div></div>
     <div class="cfg-row">
@@ -504,10 +505,10 @@ function applyMode(){
   const del=document.getElementById('btn-del');if(del)del.style.display=admin?'':'none';
   updateUI();
 }
+function getCloudUrl(){return 'https://api.github.com/repos/'+CLOUD.repo+'/contents/'+CLOUD.path+'?t='+Date.now();}
 async function ghGetPool(){
-  const url='https://api.github.com/repos/'+CLOUD.repo+'/contents/'+CLOUD.path;
   try{
-    const r=await fetch(url,{headers:{'Accept':'application/vnd.github+json','User-Agent':'weibo-gen'}});
+    const r=await fetch(getCloudUrl(),{headers:{'Accept':'application/vnd.github+json','User-Agent':'weibo-gen'}});
     if(r.status===404)return [];
     if(!r.ok){toast('云端读取失败：'+r.status,'er');return [];}
     const data=await r.json();
@@ -520,12 +521,11 @@ async function ghPutPool(arr){
   const token=getGhToken();
   if(!token){toast('请先在「云端同步」填写 GitHub Token','er');return false;}
   localStorage.setItem(SK.ghToken,token);
-  const url='https://api.github.com/repos/'+CLOUD.repo+'/contents/'+CLOUD.path;
   let sha=null;
-  try{const g=await fetch(url,{headers:{'Accept':'application/vnd.github+json','User-Agent':'weibo-gen','Authorization':'Bearer '+token}});if(g.ok){const gd=await g.json();sha=gd.sha||null;}}catch{}
+  try{const g=await fetch(getCloudUrl(),{headers:{'Accept':'application/vnd.github+json','User-Agent':'weibo-gen','Authorization':'Bearer '+token}});if(g.ok){const gd=await g.json();sha=gd.sha||null;}}catch{}
   const body={message:'sync weibo pool',content:btoa(unescape(encodeURIComponent(JSON.stringify(arr))))};
   if(sha)body.sha=sha;
-  const r=await fetch(url,{method:'PUT',headers:{'Content-Type':'application/json','Accept':'application/vnd.github+json','User-Agent':'weibo-gen','Authorization':'Bearer '+token},body:JSON.stringify(body)});
+  const r=await fetch('https://api.github.com/repos/'+CLOUD.repo+'/contents/'+CLOUD.path,{method:'PUT',headers:{'Content-Type':'application/json','Accept':'application/vnd.github+json','User-Agent':'weibo-gen','Authorization':'Bearer '+token},body:JSON.stringify(body)});
   if(r.ok){const cs=document.getElementById('cloud-status');if(cs)cs.textContent='云端状态：已同步 '+arr.length+' 条';return true;}
   toast('同步失败：'+r.status,'er');return false;
 }
@@ -742,6 +742,7 @@ document.addEventListener('DOMContentLoaded',()=>{
   const ap=localStorage.getItem(SK.adminPw);if(ap)document.getElementById('admin-pw').value=ap;
   const mp=localStorage.getItem(SK.mp);if(mp)document.getElementById('cfg-models-path').value=mp;
   updateSyncStatus();
+  const suh=document.getElementById('sync-url-hint');if(suh){suh.innerHTML='当前页面地址：<strong>'+escH(location.href.split('?')[0])+'</strong>。其他设备请打开<strong>完全相同</strong>的地址，才能看到云端内容。';}
   // 应用当前模式（管理端 / 展示端）
   applyMode();
   // 加载云端共享内容（展示端展示、管理端参考）
