@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<meta name="version" content="v20260718c-weibo-gen">
+<meta name="version" content="v20260718d-weibo-gen">
 <title>微博养号内容生成器</title>
 <style>
 :root{--c1:#4F46E5;--c1h:#4338CA;--c1l:#EEF2FF;--ok:#10B981;--err:#EF4444;--bg:#F1F5F9;--card:#FFF;--txt:#1E293B;--txt2:#64748B;--bdr:#E2E8F0;--r:12px;--rs:8px;--sh:0 1px 3px rgba(0,0,0,.08);--shm:0 4px 12px rgba(0,0,0,.1);--shl:0 10px 25px rgba(0,0,0,.12);--tr:all .25s ease}
@@ -524,17 +524,46 @@ async function ghGetPool(){
     return Array.isArray(arr)?arr:[];
   }catch(e){toast('云端读取失败：'+e.message,'er');return [];}
 }
+const CLOUD_PUT='https://api.github.com/repos/'+CLOUD.repo+'/contents/'+CLOUD.path;
 async function ghPutPool(arr){
   const token=getGhToken();
   if(!token){toast('请先在「云端同步」填写 GitHub Token','er');return false;}
   localStorage.setItem(SK.ghToken,token);
-  let sha=null;
-  try{const g=await fetch(getCloudUrl(),{headers:{'Accept':'application/vnd.github+json','User-Agent':'weibo-gen','Authorization':'Bearer '+token}});if(g.ok){const gd=await g.json();sha=gd.sha||null;}}catch{}
-  const body={message:'sync weibo pool',content:btoa(unescape(encodeURIComponent(JSON.stringify(arr))))};
-  if(sha)body.sha=sha;
-  const r=await fetch('https://api.github.com/repos/'+CLOUD.repo+'/contents/'+CLOUD.path,{method:'PUT',headers:{'Content-Type':'application/json','Accept':'application/vnd.github+json','User-Agent':'weibo-gen','Authorization':'Bearer '+token},body:JSON.stringify(body)});
-  if(r.ok){const cs=document.getElementById('cloud-status');if(cs)cs.textContent='云端状态：已同步 '+arr.length+' 条';return true;}
-  toast('同步失败：'+r.status,'er');return false;
+  const authH={'Content-Type':'application/json','Accept':'application/vnd.github+json','User-Agent':'weibo-gen','Authorization':'Bearer '+token};
+  for(let attempt=0;attempt<3;attempt++){
+    let sha=null;
+    try{const g=await fetch(getCloudUrl(),{headers:{'Accept':'application/vnd.github+json','User-Agent':'weibo-gen','Authorization':'Bearer '+token}});if(g.ok){const gd=await g.json();sha=gd.sha||null;}}catch{}
+    const body={message:'sync weibo pool',content:btoa(unescape(encodeURIComponent(JSON.stringify(arr))))};
+    if(sha)body.sha=sha;
+    const r=await fetch(CLOUD_PUT,{method:'PUT',headers:authH,body:JSON.stringify(body)});
+    if(r.ok){const cs=document.getElementById('cloud-status');if(cs)cs.textContent='云端状态：已同步 '+arr.length+' 条';return true;}
+    if(r.status===409)continue; // 并发冲突：用最新 sha 重试
+    toast('同步失败：'+r.status,'er');return false;
+  }
+  toast('同步失败：并发冲突，请稍后重试','er');return false;
+}
+// 展示端消费：真正从云端删除某条（读最新→删→写，遇 409 自动重试）
+// 返回 true=已删除 / 'gone'=该条已被其他设备取走 / false=失败
+async function removeFromCloud(raw){
+  const token=getGhToken();
+  if(!token){toast('请先在「云端写入 Token」填写 GitHub Token','er');return false;}
+  localStorage.setItem(SK.ghToken,token);
+  const authH={'Accept':'application/vnd.github+json','User-Agent':'weibo-gen','Authorization':'Bearer '+token};
+  for(let attempt=0;attempt<4;attempt++){
+    const fresh=await ghGetPool();
+    const ci=fresh.indexOf(raw);
+    if(ci<0){cloudPool=fresh;cloudLoaded=true;return 'gone';} // 已被其他设备取走
+    const toWrite=fresh.slice();toWrite.splice(ci,1);
+    let sha=null;
+    try{const g=await fetch(getCloudUrl(),{headers:authH});if(g.ok){const gd=await g.json();sha=gd.sha||null;}}catch{}
+    const body={message:'consume weibo item',content:btoa(unescape(encodeURIComponent(JSON.stringify(toWrite))))};
+    if(sha)body.sha=sha;
+    const r=await fetch(CLOUD_PUT,{method:'PUT',headers:{'Content-Type':'application/json',...authH},body:JSON.stringify(body)});
+    if(r.ok){cloudPool=toWrite;cloudLoaded=true;const cs=document.getElementById('cloud-status');if(cs)cs.textContent='云端状态：已同步 '+toWrite.length+' 条';return true;}
+    if(r.status===409)continue; // 冲突：重新读最新再删
+    toast('同步失败：'+r.status,'er');return false;
+  }
+  toast('同步失败：并发冲突，请稍后重试','er');return false;
 }
 async function syncPush(){const local=loadPool();if(local.length===0){toast('本地暂无内容可同步','er');return}showLd('同步到云端...');const ok=await ghPutPool(local);hideLd();if(ok){cloudPool=[...local];cloudLoaded=true;toast('已同步到云端 ✓','ok')}}
 async function syncPull(){showLd('从云端拉取...');const cloud=await ghGetPool();hideLd();if(!cloud)return;const local=loadPool();const set=new Set(local);cloud.forEach(x=>{if(!set.has(x))local.push(x)});savePool(local);const cs=document.getElementById('cloud-status');if(cs)cs.textContent='云端状态：已拉取 '+cloud.length+' 条';updateUI();toast('已从云端拉取，本地共 '+local.length+' 条','ok')}
@@ -555,15 +584,17 @@ async function autoPush(){
 }
 // 展示端：定时检测云端是否有更新（生成/删除后自动可见，无需逐台手动拉取）
 let cloudPollTimer=null;
+let cloudWriting=false;   // 写云端进行中：锁住轮询，避免把未完成的删除覆盖回去
 async function pollCloud(){
   if(isAdmin())return;        // 管理端以本地为准，不被动覆盖
+  if(cloudWriting)return;     // 写云端进行中：跳过本次轮询，避免把未完成的删除覆盖回去
   const fresh=await ghGetPool();
   const a=JSON.stringify(fresh),b=JSON.stringify(cloudPool);
   if(a!==b){cloudPool=fresh;cloudLoaded=true;if(cloudIdx>=cloudPool.length)cloudIdx=0;updateUI();toast('云端内容已更新 ✓','in')}
 }
 function startCloudSync(){
   if(cloudPollTimer)return;
-  cloudPollTimer=setInterval(pollCloud,60000);   // 每 60 秒检测一次（远低于 GitHub 匿名限流）
+  cloudPollTimer=setInterval(pollCloud,15000);   // 每 15 秒检测一次（带 Token 额度充足，多设备一致性更快）
   document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')pollCloud()});
   window.addEventListener('focus',pollCloud);     // 切回标签页/获得焦点时立即刷新
 }
@@ -723,23 +754,25 @@ async function copyOnly(){
     let ni=loadIdx();if(ni>=pool.length&&pool.length>0)ni=0;saveIdx(ni);
     updateUI();autoPush();toast('已复制并删除 ✓ 剩余'+pool.length+'条','ok');
   }else{
-    // 复制 = 已使用：① 记入本机已消费，刷新后云端拉回也按此过滤，绝不再显示
+    // 复制 = 已使用：记入本机已消费，刷新后云端拉回也按此过滤，绝不再显示
     const cons=loadConsumed();if(!cons.includes(raw))cons.push(raw);saveConsumed(cons);
     saveUsed(loadUsed()+1);
-    // ② 从内存云端池移除该条
+    // 内存立即移除，保证本机立刻不显示
     const ci=cloudPool.indexOf(raw);if(ci>=0)cloudPool.splice(ci,1);
-    // ③ 有 Token 则写回云端，真正从“数据库”删除，所有设备都不再出现
+    const vis=displayPool();if(cloudIdx>=vis.length)cloudIdx=Math.max(0,vis.length-1);
     const tok=getGhToken();
     if(tok){
-      ghPutPool(cloudPool).then(ok=>{
-        if(ok){cloudLoaded=true;toast('已复制并从云端删除 ✓ 剩余'+displayPool().length+'条','ok');}
+      cloudWriting=true;            // 锁住轮询，避免覆盖未完成的删除
+      try{
+        const res=await removeFromCloud(raw);
+        if(res==='gone'){toast('该条已被其他设备取走，已自动跳到下一条 ✓','ok');}
+        else if(res===true){toast('已复制并从云端删除 ✓ 剩余'+displayPool().length+'条','ok');}
         else{toast('已复制（本机已记录，云端删除失败，请检查 Token）','er');}
-      });
+      }catch(e){toast('云端同步异常：'+e.message,'er');}
+      finally{cloudWriting=false;}
     }else{
       toast('已复制并标记已用 ✓（本机不再显示；填 Token 可同步删除云端）','ok');
     }
-    // 索引收拢，避免越界
-    const vis=displayPool();if(cloudIdx>=vis.length)cloudIdx=Math.max(0,vis.length-1);
     showContent();
   }
 }
