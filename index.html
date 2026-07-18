@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<meta name="version" content="v20260718i-weibo-gen">
+<meta name="version" content="v20260718j-weibo-gen">
 <title>微博养号内容生成器</title>
 <style>
 :root{--c1:#4F46E5;--c1h:#4338CA;--c1l:#EEF2FF;--ok:#10B981;--err:#EF4444;--bg:#F1F5F9;--card:#FFF;--txt:#1E293B;--txt2:#64748B;--bdr:#E2E8F0;--r:12px;--rs:8px;--sh:0 1px 3px rgba(0,0,0,.08);--shm:0 4px 12px rgba(0,0,0,.1);--shl:0 10px 25px rgba(0,0,0,.12);--tr:all .25s ease}
@@ -705,36 +705,52 @@ function parseItems(raw,count){
   });
   return items;
 }
-async function genOneBatch(count){
+async function genOneBatch(count, retry=3){
   const c=getActiveCfg();if(!c||!c.key||!c.baseUrl){toast('请先配置 API','er');return null}
   const sysPrompt=ptmGetActiveContent()||'你是一个真人微博博主，不是AI。';
   const userPrompt=buildUserPrompt(count);
-  try{
-    const r=await fetch(getChatUrl(c.baseUrl),{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+c.key},body:JSON.stringify({model:c.models[0],messages:[{role:'system',content:sysPrompt},{role:'user',content:userPrompt}],temperature:(c.temp!==undefined?c.temp:1.3),max_tokens:16384,stream:false})});
-    if(!r.ok){toast('生成失败：'+r.status,'er');return null}
-    const data=await r.json();const raw=data.choices?.[0]?.message?.content||'';
-    if(!raw){toast('返回为空','er');return null}
-    return parseItems(raw,count);
-  }catch(e){toast('错误：'+e.message,'er');return null}
+  let lastErr=null;
+  for(let attempt=0;attempt<=retry;attempt++){
+    try{
+      const r=await fetch(getChatUrl(c.baseUrl),{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+c.key},body:JSON.stringify({model:c.models[0],messages:[{role:'system',content:sysPrompt},{role:'user',content:userPrompt}],temperature:(c.temp!==undefined?c.temp:1.3),max_tokens:4096,stream:false})});
+      if(r.status===429){ // 并发触发限流：退避后重试
+        await new Promise(res=>setTimeout(res,600*(attempt+1)));lastErr='限流';continue;
+      }
+      if(!r.ok){toast('生成失败：'+r.status,'er');return null}
+      const data=await r.json();const raw=data.choices?.[0]?.message?.content||'';
+      if(!raw){toast('返回为空','er');return null}
+      return parseItems(raw,count);
+    }catch(e){lastErr=e.message;await new Promise(res=>setTimeout(res,400*(attempt+1)));}
+  }
+  if(lastErr)toast('生成重试失败：'+lastErr,'er');
+  return null;
 }
 async function genContent(totalCount){
   const c=getActiveCfg();if(!c||!c.key||!c.baseUrl){toast('请先配置 API','er');return null}
   const perBatch=5; // 每批5条：单次输出受模型 max_output 限制，超过易截断导致生成失败
+  const CONC=4;     // 并发批数：牺牲瞬时 API 额度/负载换取速度（4 批同时请求，20 条从 4×T 压到 ~T）
+  const maxBatches=Math.ceil(totalCount/perBatch)+2; // 批数上限：基础需求 + 2 批余量（补偿字数过滤掉的部分），同时避免竞态多打
   const results=[];
-  let attempts=0;
+  let dispatched=0, done=false;
   showLd('正在生成 0/'+totalCount+' 条...');
-  while(results.length<totalCount && attempts<Math.ceil(totalCount/perBatch)*5){
-    attempts++;
-    const need=Math.min(perBatch,totalCount-results.length);
-    const items=await genOneBatch(need);
-    if(!items||items.length===0){
-      // 如果某一批完全失败，再试一次；连续失败则退出
-      if(attempts%3===0)break;
-      continue;
+  async function worker(){
+    while(!done){
+      if(dispatched>=maxBatches)break;                 // 已派够批数，停止发请求
+      if(results.length>=totalCount){done=true;break;}
+      dispatched++;
+      const items=await genOneBatch(perBatch);
+      if(items&&items.length){
+        for(const it of items){ if(results.length<totalCount) results.push(it); }
+        document.getElementById('ldt').textContent='正在生成 '+results.length+'/'+totalCount+' 条...';
+      }
+      if(results.length>=totalCount){done=true;break;}
     }
-    results.push(...items);
-    document.getElementById('ldt').textContent='正在生成 '+results.length+'/'+totalCount+' 条...';
   }
+  const workers=[];
+  const n=Math.min(CONC,maxBatches);
+  for(let i=0;i<n;i++)workers.push(worker());
+  await Promise.all(workers);
+  done=true;
   hideLd();
   if(results.length===0)return null;
   // 截断到正好需要的数量
