@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>测试 GitHub API</title>
+</head>
+<body>
+  <h1>测试 GitHub API 读取 pool.json</h1>
+  <pre id="result">加载中...</pre>
+  <script>
+    async function test() {
+      const result = document.getElementById('result');
+      try {
+        const url = 'https://api.github.com/repos/jiesenmax-lang/weibo-gen/contents/pool.json?t=' + Date.now();
+        result.textContent = '请求: ' + url + '\n\n';
+
+        const r = await fetch(url, {
+          headers: {
+            'Accept': 'application/vnd.github+json',
+            'User-Agent': 'weibo-gen-test'
+          }
+        });
+
+        result.textContent += 'Status: ' + r.status + '\n';
+
+        if (r.status === 200) {
+          const data = await r.json();
+          const content = atob(data.content.replace(/\s/g, ''));
+          const pool = JSON.parse(decodeURIComponent(escape(content)));
+          result.textContent += '✅ 成功！pool.json 有 ' + pool.length + ' 条内容\n';
+          result.textContent += '第一条前50字: ' + pool[0].slice(0, 50) + '...\n';
+        } else {
+          const text = await r.text();
+          result.textContent += '❌ 失败: ' + text.slice(0, 500);
+        }
+      } catch (e) {
+        result.textContent += '❌ 错误: ' + e.message + '\n' + e.stack;
+      }
+    }
+    test();
+  </script>
+</body>
+</html>
