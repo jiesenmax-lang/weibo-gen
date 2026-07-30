@@ -522,7 +522,7 @@ async function ghGetPool(){
     if(r.status===404)return [];
     if(!r.ok){toast('云端读取失败：'+r.status+(r.status===403?'（请填写 GitHub Token 以提升额度）':''),'er');return [];}
     const data=await r.json();
-    const content=typeof data.content==='string'?atob(data.content.replace(/s/g,'')):'';
+    const content=typeof data.content==='string'?atob(data.content.replace(/\s/g,'')):'';
     let arr=[];try{arr=JSON.parse(decodeURIComponent(escape(content)))}catch{}
     return Array.isArray(arr)?arr:[];
   }catch(e){toast('云端读取异常：'+e.message,'er');return [];}
