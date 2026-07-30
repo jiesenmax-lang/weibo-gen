@@ -629,7 +629,7 @@ function loadConsumed(){try{const a=JSON.parse(localStorage.getItem(SK.consumed)
 function saveConsumed(a){localStorage.setItem(SK.consumed,JSON.stringify(a))}
 function consumedSet(){return new Set(loadConsumed())}
 // 展示端实际可看的内容 = 云端原始池 - 本机已消费
-function displayPool(){const cs=consumedSet();return cloudPool.filter(x=>!cs.has(x))}
+function displayPool(){return cloudPool}  // 临时移除已消费过滤，让所有内容都显示
 
 // ==================== 生成 ====================
 function buildUserPrompt(count){
