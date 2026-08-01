@@ -170,21 +170,10 @@ body.admin .bb.admin-only{display:flex}
   <div class="bb admin-only"><span class="bl">📦 批量生成：</span><select class="fs" id="manual-count" style="width:auto;min-width:80px;"><option value="5">5</option><option value="10">10</option><option value="20" selected>20</option><option value="30">30</option><option value="50">50</option><option value="100">100</option><option value="200">200</option><option value="300">300</option></select><button class="btn btn-p" onclick="batchGen()" id="btn-gen">⚡ 生成</button><button class="btn btn-d" onclick="clearPool()">🗑️ 清空</button></div>
 
   <div class="card admin-only" id="sync-card"><div class="card-h" onclick="togCard('sync')"><h3>☁️ 云端同步</h3><span class="card-tog" id="sync-tog">▼</span></div><div class="card-b" id="sync-body">
-    <div class="url-preview">共享内容存于 <strong>Firebase 实时数据库</strong>（独立节点，原子领取）。<strong>生成 / 删除后自动同步</strong>；其他手机打开本页自动拉取最新，并每 15 秒后台刷新一次，无需逐台手动点同步。<strong>复制 = 原子领取并删除</strong>：点击复制后该条立即从数据库移除，同一内容只能被一台手机拿到；每台设备展示顺序按设备随机错开，多台手机同时打开也不会撞到同一条。</div>
+    <div class="url-preview">共享内容存于 <strong>Firebase 实时数据库</strong>，<strong>自动同步</strong>、每 15 秒后台刷新一次，无需任何配置。<strong>复制 = 原子领取并删除</strong>：点击复制后该条立即从数据库移除，同一内容只能被一台手机拿到；每台设备展示顺序按设备随机错开，多台手机同时打开也不会撞到同一条。</div>
     <div id="sync-status-badge" class="sync-status-badge">检测中...</div>
     <div class="url-preview" id="sync-url-hint">当前页面地址：<strong>-</strong>。其他设备请打开<strong>完全相同</strong>的地址，才能看到云端内容。</div>
     <div class="fr"><div class="fg"><label class="fl">管理密码 <small style="color:#94A3B8;font-weight:400">其他手机需输入此密码才看得到管理后台</small></label><input class="fi" id="admin-pw" type="password" placeholder="默认 jiesen" onblur="saveAdminPw()" /></div></div>
-    <div class="cfg-row">
-      <button class="btn btn-p" onclick="syncPush()">☁️ 同步到云端</button>
-      <button class="btn btn-o" onclick="syncPull()">⬇️ 从云端拉取</button>
-      <button class="btn btn-o" onclick="refreshCloud()">🔄 刷新</button>
-    </div>
-    <div class="url-preview" id="cloud-status" style="margin-bottom:0">云端状态：未同步</div>
-  </div></div>
-
-  <div class="card" id="token-card"><div class="card-h" onclick="togCard('token')"><h3>🔑 云端写入 Token</h3><span class="card-tog open" id="token-tog">▼</span></div><div class="card-b open" id="token-body">
-    <div class="url-preview">主存储为 Firebase，<strong>无需 Token</strong>。仅当 Firebase 不可达、自动回退到 GitHub <strong>pool.json</strong> 时才需要此 Token（回退模式下复制会尝试从云端删除该条）。自动保存到本机，仅本机可见。</div>
-    <div class="fr"><div class="fg"><label class="fl">GitHub Token <small style="color:#94A3B8;font-weight:400">选填；用于复制即删云端</small></label><input class="fi" id="gh-token" type="password" placeholder="ghp_..." oninput="saveGhToken();updateSyncStatus()" /></div></div>
   </div></div>
 
   <div class="cdis" id="cdis"><div class="cdis-h"><h3>📄 当前内容</h3><span class="cdis-cnt" id="cdis-cnt">0 / 0</span></div><div class="cdis-b" id="cdis-body"><div class="emp" id="emp-msg"><span class="bi">📭</span><div>库存为空</div></div><div class="cdis-txt" id="cdis-txt" style="display:none;"></div><div class="cdis-cc" id="cdis-cc" style="display:none;"></div></div><div class="ab" id="ab" style="display:none;"><button class="btn btn-o" onclick="showPrev()" id="btn-prev">⬅ 上一条</button><button class="btn btn-g" onclick="copyOnly()" id="btn-copy">📋 复制</button><button class="btn btn-o" onclick="showNext()" id="btn-next">下一条 ➡</button><button class="btn btn-d" onclick="delCur()" id="btn-del">🗑️</button></div></div>
@@ -608,8 +597,6 @@ async function initCloud(){
   fbMode=ping;
   if(fbMode){
     await fbRefresh();
-    const cs=document.getElementById('cloud-status');
-    if(cs)cs.textContent='云端状态：Firebase 已连接 · 待领取 '+fbPendingCount()+' 条';
     const badge=document.getElementById('sync-status-badge');
     if(badge){badge.className='sync-status-badge ok';badge.textContent='🟢 Firebase 主存储已连接（无需 Token）';}
   }else{
@@ -626,14 +613,7 @@ function toggleAdmin(){isAdmin()?logoutAdmin():tryAdminLogin()}
 function tryAdminLogin(){const pw=prompt('请输入管理密码：');if(pw===null)return;if(pw===getAdminPw()){localStorage.setItem(SK.adminSession,'1');applyMode();toast('已进入管理后台','ok')}else{toast('密码错误','er')}}
 function logoutAdmin(){localStorage.removeItem(SK.adminSession);applyMode();toast('已退出管理','in')}
 function saveAdminPw(){const v=document.getElementById('admin-pw').value.trim();if(v)localStorage.setItem(SK.adminPw,v);toast('管理密码已更新','ok')}
-function saveGhToken(){const v=document.getElementById('gh-token').value.trim();if(v){localStorage.setItem(SK.ghToken,v);updateSyncStatus()}else{localStorage.removeItem(SK.ghToken);updateSyncStatus()}}
-function getGhToken(){return document.getElementById('gh-token').value.trim()||localStorage.getItem(SK.ghToken)||''}
-function updateSyncStatus(){
-  const token=getGhToken();
-  const el=document.getElementById('sync-status-badge');if(!el)return;
-  if(!token){el.className='sync-status-badge warn';el.textContent='🟡 未配置 GitHub Token，生成后不会自动同步到云端';return}
-  el.className='sync-status-badge ok';el.textContent='🟢 已配置 GitHub Token，生成 / 删除后会自动同步到云端';
-}
+function getGhToken(){return localStorage.getItem(SK.ghToken)||''}
 function applyMode(){
   const admin=isAdmin();
   document.body.classList.toggle('admin',admin);
@@ -699,9 +679,6 @@ async function removeFromCloud(raw){
   }
   toast('同步失败：并发冲突，请稍后重试','er');return false;
 }
-async function syncPush(){if(fbMode){toast('Firebase 自动同步，无需手动推送 ✓','in');return;}showLd('同步到云端...');const ok=await ghPutPool(cloudPool);hideLd();if(ok){cloudLoaded=true;toast('已同步到云端 ✓','ok')}else toast('同步失败','er')}
-async function syncPull(){if(fbMode){showLd('从 Firebase 拉取...');await fbRefresh();hideLd();const cs=document.getElementById('cloud-status');if(cs)cs.textContent='云端状态：Firebase · 待领取 '+fbPendingCount()+' 条';toast('已从 Firebase 拉取，待领取 '+fbPendingCount()+' 条','ok');return;}showLd('从云端拉取...');cloudPool=await ghGetPool();cloudLoaded=true;hideLd();syncView();updateUI();const cs=document.getElementById('cloud-status');if(cs)cs.textContent='云端状态：已拉取 '+cloudPool.length+' 条';toast('已从云端拉取，云端共 '+cloudPool.length+' 条','ok')}
-async function refreshCloud(){if(fbMode){await fbRefresh();const cs=document.getElementById('cloud-status');if(cs)cs.textContent='云端状态：Firebase · 待领取 '+fbPendingCount()+' 条';toast('Firebase 已刷新','ok');return;}showLd('刷新云端...');cloudPool=await ghGetPool();cloudLoaded=true;hideLd();syncView();updateUI();toast('云端已刷新','ok')}
 async function loadCloudPool(){cloudPool=await ghGetPool();cloudLoaded=true;const cs=document.getElementById('cloud-status');if(cs)cs.textContent='云端状态：已加载 '+cloudPool.length+' 条';syncView();updateUI();}
 async function copyText(text){try{await navigator.clipboard.writeText(text);return}catch{try{const ta=document.createElement('textarea');ta.value=text;ta.style.cssText='position:fixed;left:-9999px';document.body.appendChild(ta);ta.select();document.execCommand&&document.execCommand('copy');document.body.removeChild(ta)}catch{}}}
 
@@ -1067,11 +1044,9 @@ document.addEventListener('DOMContentLoaded',()=>{
   document.getElementById('ptm-reset-btn').addEventListener('click',ptmReset);
   // 初始化禁用词
   bwLoad();
-  // 预填云端 Token / 管理密码 / 模型列表路径（仅本机）
-  const gt=localStorage.getItem(SK.ghToken);if(gt)document.getElementById('gh-token').value=gt;
+  // 预填管理密码 / 模型列表路径（仅本机）
   const ap=localStorage.getItem(SK.adminPw);if(ap)document.getElementById('admin-pw').value=ap;
   const mp=localStorage.getItem(SK.mp);if(mp)document.getElementById('cfg-models-path').value=mp;
-  updateSyncStatus();
   const suh=document.getElementById('sync-url-hint');if(suh){suh.innerHTML='当前页面地址：<strong>'+escH(location.href.split('?')[0])+'</strong>。其他设备请打开<strong>完全相同</strong>的地址，才能看到云端内容。';}
   // 应用当前模式（管理端 / 展示端）
   applyMode();
