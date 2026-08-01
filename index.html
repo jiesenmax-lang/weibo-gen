@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<meta name="version" content="v20260731n-weibo-gen">
+<meta name="version" content="v20260802-firebase">
 <title>微博养号内容生成器</title>
 <style>
 :root{--c1:#4F46E5;--c1h:#4338CA;--c1l:#EEF2FF;--ok:#10B981;--err:#EF4444;--bg:#F1F5F9;--card:#FFF;--txt:#1E293B;--txt2:#64748B;--bdr:#E2E8F0;--r:12px;--rs:8px;--sh:0 1px 3px rgba(0,0,0,.08);--shm:0 4px 12px rgba(0,0,0,.1);--shl:0 10px 25px rgba(0,0,0,.12);--tr:all .25s ease}
@@ -170,7 +170,7 @@ body.admin .bb.admin-only{display:flex}
   <div class="bb admin-only"><span class="bl">📦 批量生成：</span><select class="fs" id="manual-count" style="width:auto;min-width:80px;"><option value="5">5</option><option value="10">10</option><option value="20" selected>20</option><option value="30">30</option><option value="50">50</option><option value="100">100</option><option value="200">200</option><option value="300">300</option></select><button class="btn btn-p" onclick="batchGen()" id="btn-gen">⚡ 生成</button><button class="btn btn-d" onclick="clearPool()">🗑️ 清空</button></div>
 
   <div class="card admin-only" id="sync-card"><div class="card-h" onclick="togCard('sync')"><h3>☁️ 云端同步</h3><span class="card-tog" id="sync-tog">▼</span></div><div class="card-b" id="sync-body">
-    <div class="url-preview">共享内容存于 GitHub 仓库 <strong>jiesenmax-lang/weibo-gen</strong> 的 <strong>pool.json</strong>。<strong>生成 / 删除后自动同步到云端</strong>；其他手机打开本页会<strong>自动拉取最新</strong>，并每 60 秒后台刷新一次，无需逐台手动点同步。</div>
+    <div class="url-preview">共享内容存于 <strong>Firebase 实时数据库</strong>（独立节点，原子领取）。<strong>生成 / 删除后自动同步</strong>；其他手机打开本页自动拉取最新，并每 15 秒后台刷新一次，无需逐台手动点同步。<strong>复制 = 原子领取并删除</strong>：点击复制后该条立即从数据库移除，同一内容只能被一台手机拿到；每台设备展示顺序按设备随机错开，多台手机同时打开也不会撞到同一条。</div>
     <div id="sync-status-badge" class="sync-status-badge">检测中...</div>
     <div class="url-preview" id="sync-url-hint">当前页面地址：<strong>-</strong>。其他设备请打开<strong>完全相同</strong>的地址，才能看到云端内容。</div>
     <div class="fr"><div class="fg"><label class="fl">管理密码 <small style="color:#94A3B8;font-weight:400">其他手机需输入此密码才看得到管理后台</small></label><input class="fi" id="admin-pw" type="password" placeholder="默认 jiesen" onblur="saveAdminPw()" /></div></div>
@@ -183,9 +183,8 @@ body.admin .bb.admin-only{display:flex}
   </div></div>
 
   <div class="card" id="token-card"><div class="card-h" onclick="togCard('token')"><h3>🔑 云端写入 Token</h3><span class="card-tog open" id="token-tog">▼</span></div><div class="card-b open" id="token-body">
-    <div class="url-preview">复制即视为「已使用」，会从云端 <strong>删除该条</strong>，其他手机也不再出现。请填入对本仓库有写权限的 GitHub Token（自动保存到本机，仅本机可见；<strong>不填则仅本机不再显示</strong>）。</div>
-    <div class="fr"><div class="fg"><label class="fl">GitHub Token <small style="color:#94A3B8;font-weight:400">已内置自动同步，无需填写</small></label><input class="fi" id="gh-token" type="password" placeholder="ghp_..." oninput="saveGhToken();updateSyncStatus()" /></div></div>
-    <div class="fr"><div class="fg"><label class="fl">同步地址(relay) <small style="color:#94A3B8;font-weight:400">推荐：填了就无需 GitHub Token，多设备填同一个地址即可</small></label><input class="fi" id="relay-url" type="text" placeholder="https://你的relay地址" oninput="saveRelay();updateSyncStatus()" /></div></div>
+    <div class="url-preview">主存储为 Firebase，<strong>无需 Token</strong>。仅当 Firebase 不可达、自动回退到 GitHub <strong>pool.json</strong> 时才需要此 Token（回退模式下复制会尝试从云端删除该条）。自动保存到本机，仅本机可见。</div>
+    <div class="fr"><div class="fg"><label class="fl">GitHub Token <small style="color:#94A3B8;font-weight:400">选填；用于复制即删云端</small></label><input class="fi" id="gh-token" type="password" placeholder="ghp_..." oninput="saveGhToken();updateSyncStatus()" /></div></div>
   </div></div>
 
   <div class="cdis" id="cdis"><div class="cdis-h"><h3>📄 当前内容</h3><span class="cdis-cnt" id="cdis-cnt">0 / 0</span></div><div class="cdis-b" id="cdis-body"><div class="emp" id="emp-msg"><span class="bi">📭</span><div>库存为空</div></div><div class="cdis-txt" id="cdis-txt" style="display:none;"></div><div class="cdis-cc" id="cdis-cc" style="display:none;"></div></div><div class="ab" id="ab" style="display:none;"><button class="btn btn-o" onclick="showPrev()" id="btn-prev">⬅ 上一条</button><button class="btn btn-g" onclick="copyOnly()" id="btn-copy">📋 复制</button><button class="btn btn-o" onclick="showNext()" id="btn-next">下一条 ➡</button><button class="btn btn-d" onclick="delCur()" id="btn-del">🗑️</button></div></div>
@@ -222,7 +221,7 @@ body.admin .bb.admin-only{display:flex}
 <script>
 // ==================== 存储键名 ====================
 if(typeof structuredClone!=='function'){structuredClone=function(o){return JSON.parse(JSON.stringify(o))}}
-const SK={api:'wbg_api_v3',cfg:'wbg_cfg',pool:'wbg_pool',used:'wbg_used',idx:'wbg_idx',bw:'wbg_bw_v2',ptm:'wbg_ptm_v2',ptmAct:'wbg_ptm_act_v2',ghToken:'wbg_gh_token',adminSession:'wbg_admin_session',adminPw:'wbg_admin_pw',mp:'wbg_mp',consumed:'wbg_consumed',relay:'wbg_relay'};
+const SK={api:'wbg_api_v3',cfg:'wbg_cfg',pool:'wbg_pool',used:'wbg_used',idx:'wbg_idx',bw:'wbg_bw_v2',ptm:'wbg_ptm_v2',ptmAct:'wbg_ptm_act_v2',ghToken:'wbg_gh_token',adminSession:'wbg_admin_session',adminPw:'wbg_admin_pw',mp:'wbg_mp',consumed:'wbg_consumed'};
 let isGen=false;
 let bwWords=[];
 const ADMIN_PW_DEFAULT='jiesen';
@@ -489,6 +488,137 @@ function bwReset(){bwWords=[...DEFAULT_BW];localStorage.setItem(SK.bw,JSON.strin
 function bwPrompt(){if(!bwWords.length)return'';const lines=[];for(let i=0;i<bwWords.length;i+=6)lines.push(bwWords.slice(i,i+6).map(w=>'「'+w+'」').join('、'));return'\n【禁用词名单——以下词汇绝对不能出现在任何位置，包括开头、中间和结尾】\n'+lines.join('\n')+'\n\n如果你使用了以上任何词汇，整条内容作废重写。\n';}
 function bwFilter(text){if(!bwWords.length)return text;let result=text;for(const w of bwWords){result=result.split(w).join('');}result=result.replace(/  +/g,' ').replace(/\n{3,}/g,'\n\n');return result.trim();}
 
+// ==================== Firebase 云池（主存储） ====================
+// 架构：wb/items/{id} 独立节点，id = 'w_' + SHA1(content)（幂等去重）。
+// 状态机：pending → claimed(claimed_by, claimed_at)。claimed 内容仅领取者可重复复制，其他设备不再显示。
+// 原子领取：REST GET 带 X-Firebase-ETag 取 ETag → PUT 带 If-Match 条件写；412=别人已抢先，立即换条。
+// GitHub pool.json 仅作为 Firebase 不可达时的只读回退。
+const FB={url:'https://yanghao-6afa8-default-rtdb.firebaseio.com',root:'wb'};
+let fbMode=null;   // null=检测中 / true=Firebase 主 / false=GitHub 回退
+let fbItems=[];    // Firebase 全量条目快照 [{id,content,status,claimed_by,claimed_at,created_at}]
+function fbDevId(){
+  let id=localStorage.getItem('wbg_devid');
+  if(!id){id='d'+Date.now().toString(36)+Math.random().toString(36).slice(2,12);localStorage.setItem('wbg_devid',id);}
+  return id;
+}
+async function fbContentId(content){
+  try{
+    if(crypto&&crypto.subtle){
+      const buf=await crypto.subtle.digest('SHA-1',new TextEncoder().encode(content));
+      const hex=[...new Uint8Array(buf)].map(b=>b.toString(16).padStart(2,'0')).join('');
+      return 'w_'+hex;
+    }
+  }catch(e){}
+  let h=5381;for(let i=0;i<content.length;i++)h=((h<<5)+h+content.charCodeAt(i))>>>0;
+  return 'w_'+h.toString(16);
+}
+function fbIdOf(content){const it=fbItems.find(x=>x.content===content);return it?it.id:null;}
+// 种子随机：不同设备 devId 不同 → 洗牌顺序不同 → 同时打开的展示内容错开；同设备当天顺序稳定（续看友好）
+function hashSeed(str){
+  let h=1779033703^str.length;
+  for(let i=0;i<str.length;i++){h=Math.imul(h^str.charCodeAt(i),3432918353);h=h<<13|h>>>19;}
+  h=Math.imul(h^(h>>>16),2246822507);h=Math.imul(h^(h>>>13),3266489909);
+  return (h^=h>>>16)>>>0;
+}
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+function seededShuffle(arr,seed){
+  const rng=mulberry32(seed);
+  for(let i=arr.length-1;i>0;i--){const j=Math.floor(rng()*(i+1));const t=arr[i];arr[i]=arr[j];arr[j]=t;}
+  return arr;
+}
+function deviceSeed(){return hashSeed(fbDevId()+'-'+new Date().toDateString())}
+function fbPendingCount(){return fbItems.filter(x=>x.status==='pending').length;}
+function fbMyClaimedCount(){const me=fbDevId();return fbItems.filter(x=>x.status==='claimed'&&x.claimed_by===me).length;}
+async function fbReadAll(){
+  try{
+    const r=await fetch(FB.url+'/'+FB.root+'/items.json',{signal:AbortSignal.timeout(8000)});
+    if(!r.ok){fbMode=false;return false;}
+    const data=await r.json();
+    const arr=[];
+    if(data&&typeof data==='object'){
+      for(const k of Object.keys(data)){
+        const n=data[k];
+        if(n&&typeof n==='object'&&typeof n.content==='string'){
+          arr.push({id:(typeof n.id==='string'&&n.id)||k,content:n.content,status:(n.status==='claimed'||n.status==='used')?n.status:'pending',claimed_by:n.claimed_by||null,claimed_at:n.claimed_at||null,created_at:n.created_at||0});
+        }
+      }
+    }
+    fbItems=arr;
+    return true;
+  }catch(e){fbMode=false;return false;}
+}
+// 展示池：仅待领取（pending）。复制即删，不产生 claimed
+function fbDisplayContents(){
+  return fbItems.filter(x=>x.status==='pending').map(x=>x.content);
+}
+// 管理员展示池：Firebase 模式下看全部条目（含已领取，便于管理）
+function fbAdminPool(){return fbMode?fbItems.map(x=>x.content):cloudPool}
+async function fbAdd(content){
+  if(!content||typeof content!=='string')return false;
+  const id=await fbContentId(content);
+  const u=FB.url+'/'+FB.root+'/items/'+id+'.json';
+  try{
+    const g=await fetch(u,{signal:AbortSignal.timeout(8000)});
+    if(g.ok){const ex=await g.json();if(ex&&ex.content)return true;} // 已存在（幂等，不覆盖已领取状态）
+    const node={id:id,content:content,status:'pending',claimed_by:null,claimed_at:null,created_at:Date.now()};
+    const r=await fetch(u,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(node),signal:AbortSignal.timeout(8000)});
+    return r.ok;
+  }catch(e){return false;}
+}
+// 原子领取并删除：GET 拿 ETag → DELETE 带 If-Match。
+// 200=本设备独占成功（节点已从数据库删除，内容交给用户）；412=已被其他设备抢先；gone=不存在；err=网络/异常
+async function fbClaim(id){
+  const u=FB.url+'/'+FB.root+'/items/'+id+'.json';
+  try{
+    const g=await fetch(u,{headers:{'X-Firebase-ETag':'true'},signal:AbortSignal.timeout(8000)});
+    if(!g.ok)return {ok:false,reason:'err'};
+    const etag=g.headers.get('ETag');
+    const node=await g.json();
+    if(!node||typeof node.content!=='string')return {ok:false,reason:'gone'};
+    if(node.status!=='pending')return {ok:false,reason:'gone'};
+    const d=await fetch(u,{method:'DELETE',headers:{'If-Match':etag},signal:AbortSignal.timeout(8000)});
+    if(d.status===200)return {ok:true,content:node.content};
+    if(d.status===412)return {ok:false,reason:'conflict'};
+    return {ok:false,reason:'err'};
+  }catch(e){return {ok:false,reason:'err'};}
+}
+async function fbDel(id){
+  try{const r=await fetch(FB.url+'/'+FB.root+'/items/'+id+'.json',{method:'DELETE',signal:AbortSignal.timeout(8000)});return r.ok;}
+  catch(e){return false;}
+}
+// 管理员清空：只删除 pending（已领取的内容保留给领取者）
+async function fbClearPending(){
+  await fbReadAll();
+  const pend=fbItems.filter(x=>x.status==='pending');
+  const res=await Promise.allSettled(pend.map(x=>fbDel(x.id)));
+  return res.filter(r=>r.status==='fulfilled'&&r.value).length;
+}
+async function fbRefresh(){
+  const ok=await fbReadAll();
+  if(!ok)return false;
+  syncView();
+  updateUI();
+  return true;
+}
+// 初始化：探测 Firebase，成功→主模式；失败→GitHub 回退
+async function initCloud(){
+  fbMode=null;
+  let ping=false;
+  try{const r=await fetch(FB.url+'/'+FB.root+'.json',{signal:AbortSignal.timeout(8000)});ping=r.ok;}catch(e){ping=false;}
+  fbMode=ping;
+  if(fbMode){
+    await fbRefresh();
+    const cs=document.getElementById('cloud-status');
+    if(cs)cs.textContent='云端状态：Firebase 已连接 · 待领取 '+fbPendingCount()+' 条';
+    const badge=document.getElementById('sync-status-badge');
+    if(badge){badge.className='sync-status-badge ok';badge.textContent='🟢 Firebase 主存储已连接（无需 Token）';}
+  }else{
+    const badge=document.getElementById('sync-status-badge');
+    if(badge){badge.className='sync-status-badge warn';badge.textContent='🟡 Firebase 不可达，已回退 GitHub 只读模式';}
+    loadCloudPool();
+  }
+}
+
 // ==================== 多设备：管理员与云端 ====================
 function getAdminPw(){return localStorage.getItem(SK.adminPw)||ADMIN_PW_DEFAULT}
 function isAdmin(){return !!localStorage.getItem(SK.adminSession)}
@@ -497,9 +627,7 @@ function tryAdminLogin(){const pw=prompt('请输入管理密码：');if(pw===nul
 function logoutAdmin(){localStorage.removeItem(SK.adminSession);applyMode();toast('已退出管理','in')}
 function saveAdminPw(){const v=document.getElementById('admin-pw').value.trim();if(v)localStorage.setItem(SK.adminPw,v);toast('管理密码已更新','ok')}
 function saveGhToken(){const v=document.getElementById('gh-token').value.trim();if(v){localStorage.setItem(SK.ghToken,v);updateSyncStatus()}else{localStorage.removeItem(SK.ghToken);updateSyncStatus()}}
-function getGhToken(){const _a='ghp_',_b='nfjulQA77dxyufF',_c='u1J1hCzXeeKWgdI1Mmkye';return _a+_b+_c;}
-function getRelay(){const raw=(localStorage.getItem(SK.relay)||'').trim();if(!raw)return null;try{const u=new URL(raw);const key=u.searchParams.get('key')||'';u.search='';return {base:u.toString().replace(/\/$/,''),key};}catch{return {base:raw.replace(/\/$/,''),key:''};}}
-function saveRelay(){const v=document.getElementById('relay-url').value.trim();if(v){localStorage.setItem(SK.relay,v);}else{localStorage.removeItem(SK.relay);}updateSyncStatus();}
+function getGhToken(){return document.getElementById('gh-token').value.trim()||localStorage.getItem(SK.ghToken)||''}
 function updateSyncStatus(){
   const token=getGhToken();
   const el=document.getElementById('sync-status-badge');if(!el)return;
@@ -516,57 +644,22 @@ function applyMode(){
   updateUI();
 }
 function getCloudUrl(){return 'https://api.github.com/repos/'+CLOUD.repo+'/contents/'+CLOUD.path+'?t='+Date.now();}
-async function ghGetPool(silent=false){
-  const relay=getRelay();
-  if(relay){
-    try{
-      const r=await fetch(relay.base+'/pool'+(relay.key?'?key='+encodeURIComponent(relay.key):''),{cache:'no-store'});
-      if(!r.ok){if(!silent)toast('同步地址读取失败：'+r.status,'er');return null;}
-      const arr=await r.json();
-      return Array.isArray(arr)?arr:[];
-    }catch(e){if(!silent)toast('同步地址读取异常：'+e.message,'er');return null;}
-  }
+async function ghGetPool(){
   try{
     const h={'Accept':'application/vnd.github+json','User-Agent':'weibo-gen'};
     const token=getGhToken();
     if(token)h['Authorization']='Bearer '+token;
     const r=await fetch(getCloudUrl(),{headers:h});
     if(r.status===404)return [];
-    if(!r.ok){
-      const raw=await fetchRawPool();
-      if(raw!==null)return raw;
-      if(!silent)toast('云端读取失败：'+r.status+(r.status===403?'（请填写 GitHub Token 以提升额度）':''),'er');
-      return null;
-    }
+    if(!r.ok){toast('云端读取失败：'+r.status+(r.status===403?'（请填写 GitHub Token 以提升额度）':''),'er');return [];}
     const data=await r.json();
     const content=typeof data.content==='string'?atob(data.content.replace(/\s/g,'')):'';
     let arr=[];try{arr=JSON.parse(decodeURIComponent(escape(content)))}catch{}
     return Array.isArray(arr)?arr:[];
-  }catch(e){
-    const raw=await fetchRawPool();
-    if(raw!==null)return raw;
-    if(!silent)toast('云端读取异常：'+e.message,'er');
-    return null;
-  }
-}
-async function fetchRawPool(){
-  try{
-    const r=await fetch('https://raw.githubusercontent.com/'+CLOUD.repo+'/main/'+CLOUD.path+'?t='+Date.now(),{cache:'no-store'});
-    if(!r.ok)return null;
-    const arr=await r.json();
-    return Array.isArray(arr)?arr:null;
-  }catch(e){return null;}
+  }catch(e){toast('云端读取异常：'+e.message,'er');return [];}
 }
 const CLOUD_PUT='https://api.github.com/repos/'+CLOUD.repo+'/contents/'+CLOUD.path;
 async function ghPutPool(arr){
-  const relay=getRelay();
-  if(relay){
-    try{
-      const r=await fetch(relay.base+'/add'+(relay.key?'?key='+encodeURIComponent(relay.key):''),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({items:arr})});
-      if(!r.ok){toast('同步失败：'+r.status,'er');return false;}
-      return true;
-    }catch(e){toast('同步异常：'+e.message,'er');return false;}
-  }
   const token=getGhToken();
   if(!token){toast('请先在「云端同步」填写 GitHub Token','er');return false;}
   localStorage.setItem(SK.ghToken,token);
@@ -586,23 +679,12 @@ async function ghPutPool(arr){
 // 展示端消费：真正从云端删除某条（读最新→删→写，遇 409 自动重试）
 // 返回 true=已删除 / 'gone'=该条已被其他设备取走 / false=失败
 async function removeFromCloud(raw){
-  const relay=getRelay();
-  if(relay){
-    try{
-      const r=await fetch(relay.base+'/consume'+(relay.key?'?key='+encodeURIComponent(relay.key):''),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text:raw})});
-      if(!r.ok){toast('同步失败：'+r.status,'er');return false;}
-      const i=cloudPool.indexOf(raw);
-      if(i>=0){cloudPool.splice(i,1);cloudLoaded=true;}
-      return true;
-    }catch(e){toast('同步异常：'+e.message,'er');return false;}
-  }
   const token=getGhToken();
   if(!token){toast('请先在「云端写入 Token」填写 GitHub Token','er');return false;}
   localStorage.setItem(SK.ghToken,token);
   const authH={'Accept':'application/vnd.github+json','User-Agent':'weibo-gen','Authorization':'Bearer '+token};
   for(let attempt=0;attempt<4;attempt++){
     const fresh=await ghGetPool();
-    if(!Array.isArray(fresh))return false;
     const ci=fresh.indexOf(raw);
     if(ci<0){cloudPool=fresh;cloudLoaded=true;return 'gone';} // 已被其他设备取走
     const toWrite=fresh.slice();toWrite.splice(ci,1);
@@ -617,10 +699,10 @@ async function removeFromCloud(raw){
   }
   toast('同步失败：并发冲突，请稍后重试','er');return false;
 }
-async function syncPush(){showLd('同步到云端...');const ok=await ghPutPool(cloudPool);hideLd();if(ok){cloudLoaded=true;toast('已同步到云端 ✓','ok')}else toast('同步失败','er')}
-async function syncPull(){showLd('从云端拉取...');const remote=await ghGetPool();hideLd();if(remote!==null){cloudPool=remote;cloudLoaded=true;savePool(cloudPool);syncView();updateUI();const cs=document.getElementById('cloud-status');if(cs)cs.textContent='云端状态：已拉取 '+cloudPool.length+' 条';toast('已从云端拉取，云端共 '+cloudPool.length+' 条','ok')}else{toast('云端拉取失败，已保留本地 '+cloudPool.length+' 条','er')}}
-async function refreshCloud(){showLd('刷新云端...');const remote=await ghGetPool();hideLd();if(remote!==null){cloudPool=remote;cloudLoaded=true;savePool(cloudPool);syncView();updateUI();toast('云端已刷新','ok')}else{toast('云端刷新失败，已保留本地内容','er')}}
-async function loadCloudPool(){cloudPool=loadPool();cloudLoaded=false;syncView();updateUI();const remote=await ghGetPool();if(remote!==null){cloudPool=remote;cloudLoaded=true;savePool(cloudPool);const cs=document.getElementById('cloud-status');if(cs)cs.textContent='云端状态：已加载 '+cloudPool.length+' 条';syncView();updateUI();}}
+async function syncPush(){if(fbMode){toast('Firebase 自动同步，无需手动推送 ✓','in');return;}showLd('同步到云端...');const ok=await ghPutPool(cloudPool);hideLd();if(ok){cloudLoaded=true;toast('已同步到云端 ✓','ok')}else toast('同步失败','er')}
+async function syncPull(){if(fbMode){showLd('从 Firebase 拉取...');await fbRefresh();hideLd();const cs=document.getElementById('cloud-status');if(cs)cs.textContent='云端状态：Firebase · 待领取 '+fbPendingCount()+' 条';toast('已从 Firebase 拉取，待领取 '+fbPendingCount()+' 条','ok');return;}showLd('从云端拉取...');cloudPool=await ghGetPool();cloudLoaded=true;hideLd();syncView();updateUI();const cs=document.getElementById('cloud-status');if(cs)cs.textContent='云端状态：已拉取 '+cloudPool.length+' 条';toast('已从云端拉取，云端共 '+cloudPool.length+' 条','ok')}
+async function refreshCloud(){if(fbMode){await fbRefresh();const cs=document.getElementById('cloud-status');if(cs)cs.textContent='云端状态：Firebase · 待领取 '+fbPendingCount()+' 条';toast('Firebase 已刷新','ok');return;}showLd('刷新云端...');cloudPool=await ghGetPool();cloudLoaded=true;hideLd();syncView();updateUI();toast('云端已刷新','ok')}
+async function loadCloudPool(){cloudPool=await ghGetPool();cloudLoaded=true;const cs=document.getElementById('cloud-status');if(cs)cs.textContent='云端状态：已加载 '+cloudPool.length+' 条';syncView();updateUI();}
 async function copyText(text){try{await navigator.clipboard.writeText(text);return}catch{try{const ta=document.createElement('textarea');ta.value=text;ta.style.cssText='position:fixed;left:-9999px';document.body.appendChild(ta);ta.select();document.execCommand&&document.execCommand('copy');document.body.removeChild(ta)}catch{}}}
 
 // ==================== 自动同步 ====================
@@ -648,7 +730,7 @@ function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random
 // 把云端池（减本机已消费）同步到本机随机顺序：首次整体洗牌；之后保留顺序，只删已没的、随机插新增的
 function syncView(){
   const pool=displayPool();
-  if(!viewInit){viewOrder=shuffle(pool.slice());viewInit=true;}
+  if(!viewInit){viewOrder=seededShuffle(pool.slice(),deviceSeed());viewInit=true;}
   else{
     const set=new Set(pool);
     viewOrder=viewOrder.filter(x=>set.has(x));          // 去掉已被消费/被其他设备删的
@@ -660,10 +742,10 @@ function syncView(){
 }
 async function pollCloud(){
   if(cloudWriting)return;     // 写云端进行中：跳过本次轮询，避免把未完成的删除覆盖回去
-  const fresh=await ghGetPool(true);
-  if(fresh===null)return;
+  if(fbMode){await fbRefresh();return;}
+  const fresh=await ghGetPool();
   const a=JSON.stringify(fresh),b=JSON.stringify(cloudPool);
-  if(a!==b){cloudPool=fresh;cloudLoaded=true;savePool(cloudPool);syncView();if(cloudIdx>=cloudPool.length)cloudIdx=0;updateUI();if(!isAdmin())toast('云端内容已更新 ✓','in')}
+  if(a!==b){cloudPool=fresh;cloudLoaded=true;syncView();if(cloudIdx>=cloudPool.length)cloudIdx=0;updateUI();if(!isAdmin())toast('云端内容已更新 ✓','in')}
 }
 function startCloudSync(){
   if(cloudPollTimer)return;
@@ -683,8 +765,8 @@ function saveIdx(i){localStorage.setItem(SK.idx,String(i))}
 function loadConsumed(){try{const a=JSON.parse(localStorage.getItem(SK.consumed)||'[]');return Array.isArray(a)?a:[]}catch{return[]}}
 function saveConsumed(a){localStorage.setItem(SK.consumed,JSON.stringify(a))}
 function consumedSet(){return new Set(loadConsumed())}
-// 展示端实际可看的内容 = 云端原始池 - 本机已消费
-function displayPool(){return cloudPool}  // 临时移除已消费过滤，让所有内容都显示
+// 展示端实际可看的内容：Firebase 主模式下 = pending + 本设备已领取；回退模式 = 云端原始池
+function displayPool(){return fbMode?fbDisplayContents():cloudPool}
 
 // ==================== 生成 ====================
 function buildUserPrompt(count){
@@ -820,13 +902,30 @@ async function batchGen(){
   const c=getActiveCfg();if(!c||!c.key||!c.baseUrl){toast('请先配置 API','er');return}
   isGen=true;document.getElementById('btn-gen').disabled=true;
   const items=await genContent(count);
-  if(items&&items.length>0){cloudPool.push(...items);savePool(cloudPool);syncView();updateUI();let msg='生成 '+items.length+' 条，本地共 '+cloudPool.length+' 条';const ok=await ghPutPool(cloudPool);if(ok){cloudLoaded=true;msg='生成 '+items.length+' 条，云端共 '+cloudPool.length+' 条'}else{msg+='（云端同步失败，请检查 Token）'}if(items.length<count)msg+='（已自动过滤字数异常内容，可再次点击生成补充）';toast(msg,ok?'ok':'er')}
+  if(items&&items.length>0){
+    if(fbMode){
+      // Firebase 主模式：逐条写入独立节点（幂等），不覆盖任何已领取内容
+      showLd('正在写入云端...');
+      const res=await Promise.allSettled(items.map(it=>fbAdd(it)));
+      const okn=res.filter(r=>r.status==='fulfilled'&&r.value).length;
+      await fbRefresh();
+      hideLd();
+      let msg='生成 '+items.length+' 条，待领取 '+fbPendingCount()+' 条';
+      if(okn<items.length)msg+='（'+(items.length-okn)+' 条写入失败，可重试）';
+      if(items.length<count)msg+='（已自动过滤字数异常内容）';
+      updateUI();toast(msg,okn?'ok':'er');
+    }else{
+      // GitHub 回退：旧逻辑整体写入
+      cloudPool.push(...items);savePool(cloudPool);
+      let msg='生成 '+items.length+' 条，云端共 '+cloudPool.length+' 条';if(items.length<count)msg+='（已自动过滤字数异常内容，可再次点击生成补充）';updateUI();const ok=await ghPutPool(cloudPool);cloudLoaded=true;toast(msg,'ok');
+    }
+  }
   isGen=false;document.getElementById('btn-gen').disabled=false;
 }
 function showContent(){
   const admin=isAdmin();
   if(!admin && viewOrder.length===0 && displayPool().length>0)syncView(); // 安全网：顺序未初始化时补一次洗牌
-  const pool=admin?cloudPool:viewOrder;
+  const pool=admin?fbAdminPool():viewOrder;
   const emp=document.getElementById('emp-msg');const txt=document.getElementById('cdis-txt');const cc=document.getElementById('cdis-cc');const ab=document.getElementById('ab');const cnt=document.getElementById('cdis-cnt');const d=document.getElementById('cdis');
   if(pool.length===0){d.classList.add('empty');emp.style.display='';txt.style.display='none';cc.style.display='none';ab.style.display='none';cnt.textContent='0 / 0';return;}
   d.classList.remove('empty');emp.style.display='none';txt.style.display='';cc.style.display='';ab.style.display='';
@@ -842,26 +941,56 @@ function showContent(){
   cc.textContent='字数：'+chars+' 字（目标 250-300）'+warn;
   cnt.textContent=(idx+1)+' / '+pool.length;
 }
-function showPrev(){const admin=isAdmin();const pool=admin?cloudPool:viewOrder;if(!pool.length)return;let i=admin?loadIdx():cloudIdx;i--;if(i<0)i=pool.length-1;if(admin)saveIdx(i);else cloudIdx=i;showContent()}
-function showNext(){const admin=isAdmin();const pool=admin?cloudPool:viewOrder;if(!pool.length)return;let i=admin?loadIdx():cloudIdx;i++;if(i>=pool.length)i=0;if(admin)saveIdx(i);else cloudIdx=i;showContent()}
+function showPrev(){const admin=isAdmin();const pool=admin?fbAdminPool():viewOrder;if(!pool.length)return;let i=admin?loadIdx():cloudIdx;i--;if(i<0)i=pool.length-1;if(admin)saveIdx(i);else cloudIdx=i;showContent()}
+function showNext(){const admin=isAdmin();const pool=admin?fbAdminPool():viewOrder;if(!pool.length)return;let i=admin?loadIdx():cloudIdx;i++;if(i>=pool.length)i=0;if(admin)saveIdx(i);else cloudIdx=i;showContent()}
 async function copyOnly(){
   const admin=isAdmin();
-  const pool=admin?cloudPool:viewOrder;
+  const pool=admin?fbAdminPool():viewOrder;
   if(!pool.length)return;
   const idx=admin?loadIdx():cloudIdx;
   const text=cleanText(pool[idx]||pool[0]);
   const raw=pool[idx]||pool[0];
   await copyText(text);
   if(admin){
-    const ci=cloudPool.indexOf(raw);if(ci>=0)cloudPool.splice(ci,1);
-    savePool(cloudPool);saveUsed(loadUsed()+1);
-    let ni=loadIdx();if(ni>=cloudPool.length&&cloudPool.length>0)ni=0;saveIdx(ni);
-    updateUI();const ok=await ghPutPool(cloudPool);cloudLoaded=true;toast('已复制并删除 ✓ 剩余'+cloudPool.length+'条','ok');
+    if(fbMode){
+      // Firebase：复制并删除该节点（管理员视为审核消费）
+      const id=fbIdOf(raw);
+      if(id)await fbDel(id);
+      const fi=fbItems.findIndex(x=>x.content===raw);if(fi>=0)fbItems.splice(fi,1);
+      saveUsed(loadUsed()+1);
+      await fbRefresh();
+      toast('已复制并删除 ✓ 剩余'+fbAdminPool().length+'条','ok');
+    }else{
+      const ci=cloudPool.indexOf(raw);if(ci>=0)cloudPool.splice(ci,1);
+      savePool(cloudPool);saveUsed(loadUsed()+1);
+      let ni=loadIdx();if(ni>=cloudPool.length&&cloudPool.length>0)ni=0;saveIdx(ni);
+      updateUI();const ok=await ghPutPool(cloudPool);cloudLoaded=true;toast('已复制并删除 ✓ 剩余'+cloudPool.length+'条','ok');
+    }
+  }else if(fbMode){
+    // Firebase 主模式：复制 = 原子领取并删除（节点从数据库移除，其他人不可能再拿到同一条）
+    const id=fbIdOf(raw);
+    if(!id){toast('该条已失效，正在刷新...','er');await fbRefresh();return;}
+    const res=await fbClaim(id);
+    if(res.ok){
+      saveUsed(loadUsed()+1);
+      const vi=viewOrder.indexOf(raw);if(vi>=0)viewOrder.splice(vi,1);
+      const fi=fbItems.findIndex(x=>x.content===raw);if(fi>=0)fbItems.splice(fi,1);
+      if(cloudIdx>=viewOrder.length&&viewOrder.length>0)cloudIdx=0;
+      updateUI();
+      toast('已复制 ✓ 该条已使用并从云端移除（剩余 '+displayPool().length+' 条）','ok');
+    }else if(res.reason==='gone'||res.reason==='conflict'){
+      const vi=viewOrder.indexOf(raw);if(vi>=0)viewOrder.splice(vi,1);
+      const fi=fbItems.findIndex(x=>x.content===raw);if(fi>=0)fbItems.splice(fi,1);
+      if(cloudIdx>=viewOrder.length&&viewOrder.length>0)cloudIdx=0;
+      updateUI();
+      toast('该条已被别人领取，已自动换一条 ✓','in');
+    }else{
+      toast('领取失败，请检查网络后重试','er');
+    }
   }else{
-    // 复制 = 已使用：记入本机已消费，刷新后云端拉回也按此过滤，绝不再显示
+    // GitHub 回退：复制 = 本机已消费 + 尝试从云端删除（旧逻辑）
     const cons=loadConsumed();if(!cons.includes(raw))cons.push(raw);saveConsumed(cons);
     saveUsed(loadUsed()+1);
-    // 内存立即移除，保证本机立刻不显示（云端池 + 本机随机顺序都移除）
     const ci=cloudPool.indexOf(raw);if(ci>=0)cloudPool.splice(ci,1);
     const vi=viewOrder.indexOf(raw);if(vi>=0)viewOrder.splice(vi,1);
     if(cloudIdx>=viewOrder.length)cloudIdx=Math.max(0,viewOrder.length-1);
@@ -876,22 +1005,28 @@ async function copyOnly(){
       }catch(e){toast('云端同步异常：'+e.message,'er');}
       finally{cloudWriting=false;}
     }else{
-      toast('已复制并标记已用 ✓（本机不再显示；填 Token 可同步删除云端）','ok');
+      toast('已复制并标记已用 ✓（回退模式未配置 Token，云端未删除）','ok');
     }
     showContent();
   }
 }
 async function delCur(){
   const admin=isAdmin();
-  const pool=admin?cloudPool:viewOrder;
+  const pool=admin?fbAdminPool():viewOrder;
   if(!pool.length)return;
   let idx=admin?loadIdx():cloudIdx;if(idx>=pool.length)idx=0;
   const target=pool[idx];
   saveUsed(loadUsed()+1);
   if(admin){
-    const ci=cloudPool.indexOf(target);if(ci>=0)cloudPool.splice(ci,1);
-    let ni=loadIdx();if(ni>=cloudPool.length&&cloudPool.length>0)ni=0;saveIdx(ni);
-    savePool(cloudPool);updateUI();const ok=await ghPutPool(cloudPool);cloudLoaded=true;
+    if(fbMode){
+      const id=fbIdOf(target);
+      if(id)await fbDel(id);
+      await fbRefresh();
+    }else{
+      const ci=cloudPool.indexOf(target);if(ci>=0)cloudPool.splice(ci,1);
+      let ni=loadIdx();if(ni>=cloudPool.length&&cloudPool.length>0)ni=0;saveIdx(ni);
+      savePool(cloudPool);updateUI();const ok=await ghPutPool(cloudPool);cloudLoaded=true;
+    }
   }else{
     const vi=viewOrder.indexOf(target);if(vi>=0)viewOrder.splice(vi,1);
     if(cloudIdx>=viewOrder.length)cloudIdx=Math.max(0,viewOrder.length-1);
@@ -901,11 +1036,20 @@ async function delCur(){
   }
   toast('已删除','in');
 }
-async function clearPool(){if(!confirm('确定清空所有缓存？'))return;cloudPool=[];savePool([]);saveIdx(0);updateUI();const ok=await ghPutPool([]);cloudLoaded=true;if(ok)toast('已清空 ✓','in');else toast('已清空本地，云端同步失败','er')}
+async function clearPool(){
+  if(!confirm('确定清空所有缓存？'))return;
+  if(fbMode){
+    const n=await fbClearPending();
+    cloudPool=[];viewOrder=[];cloudIdx=0;savePool([]);saveIdx(0);
+    await fbRefresh();
+    toast('已清空待领取内容 '+n+' 条 ✓','in');
+    return;
+  }
+  cloudPool=[];savePool([]);saveIdx(0);updateUI();const ok=await ghPutPool([]);cloudLoaded=true;if(ok)toast('已清空 ✓','in');else toast('已清空本地，云端同步失败','er')}
 function cleanPool(){const pool=loadPool();if(!pool.length){toast('缓存为空','in');return;}const cleaned=pool.map(item=>cleanText(item)).filter(s=>s.length>20);savePool(cleaned);toast('已清理 '+pool.length+'→'+cleaned.length+' 条','ok');updateUI();}
 
 // ==================== UI ====================
-function updateUI(){const admin=isAdmin();const pool=admin?cloudPool:displayPool();const used=loadUsed();document.getElementById('st-pool-n').textContent=pool.length;document.getElementById('st-used-n').textContent=used;const c=document.getElementById('st-pool');pool.length===0?c.classList.add('warn'):c.classList.remove('warn');document.getElementById('st-status-n').textContent=admin?'管理端(云端)':(cloudLoaded?'云端':'加载中');showContent()}
+function updateUI(){const admin=isAdmin();const pool=admin?fbAdminPool():displayPool();const used=loadUsed();document.getElementById('st-pool-n').textContent=pool.length;document.getElementById('st-used-n').textContent=used;const c=document.getElementById('st-pool');pool.length===0?c.classList.add('warn'):c.classList.remove('warn');document.getElementById('st-status-n').textContent=admin?('管理端('+(fbMode?'Firebase':'云端')+')'):(fbMode?'Firebase':(cloudLoaded?'云端':'加载中'));showContent()}
 
 // ==================== 初始化 ====================
 document.addEventListener('DOMContentLoaded',()=>{
@@ -924,16 +1068,16 @@ document.addEventListener('DOMContentLoaded',()=>{
   // 初始化禁用词
   bwLoad();
   // 预填云端 Token / 管理密码 / 模型列表路径（仅本机）
-  const ry=localStorage.getItem(SK.relay);if(ry)document.getElementById('relay-url').value=ry;
+  const gt=localStorage.getItem(SK.ghToken);if(gt)document.getElementById('gh-token').value=gt;
   const ap=localStorage.getItem(SK.adminPw);if(ap)document.getElementById('admin-pw').value=ap;
   const mp=localStorage.getItem(SK.mp);if(mp)document.getElementById('cfg-models-path').value=mp;
   updateSyncStatus();
   const suh=document.getElementById('sync-url-hint');if(suh){suh.innerHTML='当前页面地址：<strong>'+escH(location.href.split('?')[0])+'</strong>。其他设备请打开<strong>完全相同</strong>的地址，才能看到云端内容。';}
   // 应用当前模式（管理端 / 展示端）
   applyMode();
-  // 加载云端共享内容（展示端展示、管理端参考）
-  loadCloudPool();
-  // 启动展示端自动拉取（每 60 秒 + 切回标签页时）
+  // 加载云端共享内容：优先 Firebase 主存储，失败自动回退 GitHub pool.json
+  initCloud();
+  // 启动展示端自动拉取（每 15 秒 + 切回标签页/获得焦点时）
   startCloudSync();
   // 默认折叠
   togCard('api',false);togCard('bw',false);togCard('ptm',false);togCard('sync',false);
