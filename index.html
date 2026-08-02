@@ -187,7 +187,7 @@ body.admin .bb.admin-only{display:flex}
     <div class="fr"><div class="fg"><label class="fl">管理密码 <small style="color:#94A3B8;font-weight:400">其他手机需输入此密码才看得到管理后台</small></label><input class="fi" id="admin-pw" type="password" placeholder="默认 jiesen" onblur="saveAdminPw()" /></div></div>
   </div></div>
 
-  <div class="cdis" id="cdis"><div class="cdis-h"><h3>📄 当前内容</h3><span class="cdis-cnt" id="cdis-cnt">0 / 0</span></div><div class="cdis-b" id="cdis-body"><div class="emp" id="emp-msg"><span class="bi">📭</span><div>库存为空</div></div><div class="cdis-txt" id="cdis-txt" style="display:none;"></div><div class="cdis-cc" id="cdis-cc" style="display:none;"></div></div><div class="ab" id="ab" style="display:none;"><button class="btn btn-o" onclick="showPrev()" id="btn-prev">⬅ 上一条</button><button class="btn btn-g" onclick="copyOnly()" id="btn-copy">📋 复制</button><button class="btn btn-o" onclick="showNext()" id="btn-next">下一条 ➡</button><button class="btn btn-d" onclick="delCur()" id="btn-del">🗑️</button></div></div>
+  <div class="cdis" id="cdis"><div class="cdis-h"><h3>📄 当前内容</h3><span class="cdis-cnt" id="cdis-cnt">0 / 0</span></div><div class="cdis-b" id="cdis-body"><div class="emp" id="emp-msg"><span class="bi">📭</span><div id="emp-txt">库存为空</div><button class="btn btn-p" id="fb-retry" style="display:none;margin-top:12px;" onclick="retryCloud()">🔄 重新连接</button></div><div class="cdis-txt" id="cdis-txt" style="display:none;"></div><div class="cdis-cc" id="cdis-cc" style="display:none;"></div></div><div class="ab" id="ab" style="display:none;"><button class="btn btn-o" onclick="showPrev()" id="btn-prev">⬅ 上一条</button><button class="btn btn-g" onclick="copyOnly()" id="btn-copy">📋 复制</button><button class="btn btn-o" onclick="showNext()" id="btn-next">下一条 ➡</button><button class="btn btn-d" onclick="delCur()" id="btn-del">🗑️</button></div></div>
 </div>
 
 <div class="modal" id="model-modal">
@@ -599,24 +599,30 @@ async function fbRefresh(){
   updateUI();
   return true;
 }
-// 初始化：探测 Firebase（3 次重试，防网络抖动误判）。Firebase 是唯一展示来源；失败时不显示 GitHub 旧池（避免新旧数据混杂误导），改为友好提示
+// 初始化：探测 Firebase（快速，最长约 13 秒）。失败 → 展示端明确提示 + 每 30 秒自动重试 + 手动重试按钮
+let cloudRetryTimer=null;
 async function initCloud(){
   fbMode=null;
   const badge=document.getElementById('sync-status-badge');
-  if(badge){badge.className='sync-status-badge warn';badge.textContent='检测中…';}
+  if(badge){badge.className='sync-status-badge warn';badge.textContent='⏳ 正在连接云端…';}
+  updateUI();
   let ping=false;
-  for(let i=0;i<3;i++){
-    try{const r=await fetch(FB.url+'/'+FB.root+'.json?t='+Date.now(),{signal:AbortSignal.timeout(8000),cache:'no-store'});if(r.ok){ping=true;break;}}catch(e){}
-    if(i<2)await new Promise(res=>setTimeout(res,1500));
+  for(let i=0;i<2;i++){
+    try{const r=await fetch(FB.url+'/'+FB.root+'.json?t='+Date.now(),{signal:AbortSignal.timeout(6000),cache:'no-store'});if(r.ok){ping=true;break;}}catch(e){}
+    if(i<1)await new Promise(res=>setTimeout(res,1000));
   }
   fbMode=ping;
   if(fbMode){
+    if(cloudRetryTimer){clearInterval(cloudRetryTimer);cloudRetryTimer=null;}
     await fbRefresh();
     if(badge){badge.className='sync-status-badge ok';badge.textContent='🟢 已连接云端';}
   }else{
-    if(badge){badge.className='sync-status-badge er';badge.textContent='⚠️ 云端暂不可用，请稍后刷新重试';}
+    if(badge){badge.className='sync-status-badge er';badge.textContent='⚠️ 云端连接失败：当前网络可能无法访问云端服务';}
+    if(!cloudRetryTimer)cloudRetryTimer=setInterval(()=>{if(fbMode!==true)initCloud();},30000); // 每 30 秒自动重试
   }
+  updateUI();
 }
+function retryCloud(){if(cloudRetryTimer){clearInterval(cloudRetryTimer);cloudRetryTimer=null;}initCloud()}
 
 // ==================== 多设备：管理员与云端 ====================
 function getAdminPw(){return localStorage.getItem(SK.adminPw)||ADMIN_PW_DEFAULT}
@@ -830,7 +836,13 @@ function showContent(){
   if(!admin && viewOrder.length===0 && displayPool().length>0)syncView(); // 安全网：顺序未初始化时补一次洗牌
   const pool=admin?fbAdminPool():viewOrder;
   const emp=document.getElementById('emp-msg');const txt=document.getElementById('cdis-txt');const cc=document.getElementById('cdis-cc');const ab=document.getElementById('ab');const cnt=document.getElementById('cdis-cnt');const d=document.getElementById('cdis');
-  if(pool.length===0){d.classList.add('empty');emp.style.display='';txt.style.display='none';cc.style.display='none';ab.style.display='none';cnt.textContent='0 / 0';return;}
+  if(pool.length===0){
+    d.classList.add('empty');emp.style.display='';txt.style.display='none';cc.style.display='none';ab.style.display='none';cnt.textContent='0 / 0';
+    const empTxt=document.getElementById('emp-txt');const rb=document.getElementById('fb-retry');
+    if(empTxt)empTxt.textContent=(fbMode===false)?'⚠️ 云端连接失败：当前网络无法访问云端服务，请检查网络或点击下方重试':(fbMode===null?'⏳ 正在连接云端…':'库存为空');
+    if(rb)rb.style.display=(fbMode===false)?'inline-block':'none';
+    return;
+  }
   d.classList.remove('empty');emp.style.display='none';txt.style.display='';cc.style.display='';ab.style.display='';
   let idx=admin?loadIdx():cloudIdx;
   if(idx>=pool.length)idx=0;if(idx<0)idx=pool.length-1;
