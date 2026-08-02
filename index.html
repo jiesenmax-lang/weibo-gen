@@ -520,7 +520,7 @@ function fbPendingCount(){return fbItems.filter(x=>x.status==='pending').length;
 function fbMyClaimedCount(){const me=fbDevId();return fbItems.filter(x=>x.status==='claimed'&&x.claimed_by===me).length;}
 async function fbReadAll(){
   try{
-    const r=await fetch(FB.url+'/'+FB.root+'/items.json',{signal:AbortSignal.timeout(8000)});
+    const r=await fetch(FB.url+'/'+FB.root+'/items.json?t='+Date.now(),{signal:AbortSignal.timeout(8000),cache:'no-store'});
     if(!r.ok){fbMode=false;return false;}
     const data=await r.json();
     const arr=[];
@@ -589,20 +589,22 @@ async function fbRefresh(){
   updateUI();
   return true;
 }
-// 初始化：探测 Firebase，成功→主模式；失败→GitHub 回退
+// 初始化：探测 Firebase（3 次重试，防网络抖动误判）。Firebase 是唯一展示来源；失败时不显示 GitHub 旧池（避免新旧数据混杂误导），改为友好提示
 async function initCloud(){
   fbMode=null;
+  const badge=document.getElementById('sync-status-badge');
+  if(badge){badge.className='sync-status-badge warn';badge.textContent='检测中…';}
   let ping=false;
-  try{const r=await fetch(FB.url+'/'+FB.root+'.json',{signal:AbortSignal.timeout(8000)});ping=r.ok;}catch(e){ping=false;}
+  for(let i=0;i<3;i++){
+    try{const r=await fetch(FB.url+'/'+FB.root+'.json?t='+Date.now(),{signal:AbortSignal.timeout(8000),cache:'no-store'});if(r.ok){ping=true;break;}}catch(e){}
+    if(i<2)await new Promise(res=>setTimeout(res,1500));
+  }
   fbMode=ping;
   if(fbMode){
     await fbRefresh();
-    const badge=document.getElementById('sync-status-badge');
-    if(badge){badge.className='sync-status-badge ok';badge.textContent='🟢 Firebase 主存储已连接（无需 Token）';}
+    if(badge){badge.className='sync-status-badge ok';badge.textContent='🟢 已连接云端';}
   }else{
-    const badge=document.getElementById('sync-status-badge');
-    if(badge){badge.className='sync-status-badge warn';badge.textContent='🟡 Firebase 不可达，已回退 GitHub 只读模式';}
-    loadCloudPool();
+    if(badge){badge.className='sync-status-badge er';badge.textContent='⚠️ 云端暂不可用，请稍后刷新重试';}
   }
 }
 
@@ -887,14 +889,12 @@ async function batchGen(){
       const okn=res.filter(r=>r.status==='fulfilled'&&r.value).length;
       await fbRefresh();
       hideLd();
-      let msg='生成 '+items.length+' 条，待领取 '+fbPendingCount()+' 条';
-      if(okn<items.length)msg+='（'+(items.length-okn)+' 条写入失败，可重试）';
+      let msg='已生成 '+items.length+' 条新内容';
+      if(okn<items.length)msg+='（部分写入失败，可重试）';
       if(items.length<count)msg+='（已自动过滤字数异常内容）';
       updateUI();toast(msg,okn?'ok':'er');
     }else{
-      // GitHub 回退：旧逻辑整体写入
-      cloudPool.push(...items);savePool(cloudPool);
-      let msg='生成 '+items.length+' 条，云端共 '+cloudPool.length+' 条';if(items.length<count)msg+='（已自动过滤字数异常内容，可再次点击生成补充）';updateUI();const ok=await ghPutPool(cloudPool);cloudLoaded=true;toast(msg,'ok');
+      toast('云端暂不可用，请稍后重试','er');
     }
   }
   isGen=false;document.getElementById('btn-gen').disabled=false;
@@ -936,12 +936,12 @@ async function copyOnly(){
       const fi=fbItems.findIndex(x=>x.content===raw);if(fi>=0)fbItems.splice(fi,1);
       saveUsed(loadUsed()+1);
       await fbRefresh();
-      toast('已复制并删除 ✓ 剩余'+fbAdminPool().length+'条','ok');
+      toast('已复制 ✓ 该条已删除','ok');
     }else{
       const ci=cloudPool.indexOf(raw);if(ci>=0)cloudPool.splice(ci,1);
       savePool(cloudPool);saveUsed(loadUsed()+1);
       let ni=loadIdx();if(ni>=cloudPool.length&&cloudPool.length>0)ni=0;saveIdx(ni);
-      updateUI();const ok=await ghPutPool(cloudPool);cloudLoaded=true;toast('已复制并删除 ✓ 剩余'+cloudPool.length+'条','ok');
+      updateUI();const ok=await ghPutPool(cloudPool);cloudLoaded=true;toast('已复制 ✓ 该条已删除','ok');
     }
   }else if(fbMode){
     // Firebase 主模式：复制 = 原子领取并删除（节点从数据库移除，其他人不可能再拿到同一条）
@@ -954,7 +954,7 @@ async function copyOnly(){
       const fi=fbItems.findIndex(x=>x.content===raw);if(fi>=0)fbItems.splice(fi,1);
       if(cloudIdx>=viewOrder.length&&viewOrder.length>0)cloudIdx=0;
       updateUI();
-      toast('已复制 ✓ 该条已使用并从云端移除（剩余 '+displayPool().length+' 条）','ok');
+      toast('已复制 ✓ 该条已使用并从云端移除','ok');
     }else if(res.reason==='gone'||res.reason==='conflict'){
       const vi=viewOrder.indexOf(raw);if(vi>=0)viewOrder.splice(vi,1);
       const fi=fbItems.findIndex(x=>x.content===raw);if(fi>=0)fbItems.splice(fi,1);
@@ -965,26 +965,7 @@ async function copyOnly(){
       toast('领取失败，请检查网络后重试','er');
     }
   }else{
-    // GitHub 回退：复制 = 本机已消费 + 尝试从云端删除（旧逻辑）
-    const cons=loadConsumed();if(!cons.includes(raw))cons.push(raw);saveConsumed(cons);
-    saveUsed(loadUsed()+1);
-    const ci=cloudPool.indexOf(raw);if(ci>=0)cloudPool.splice(ci,1);
-    const vi=viewOrder.indexOf(raw);if(vi>=0)viewOrder.splice(vi,1);
-    if(cloudIdx>=viewOrder.length)cloudIdx=Math.max(0,viewOrder.length-1);
-    const tok=getGhToken();
-    if(tok){
-      cloudWriting=true;            // 锁住轮询，避免覆盖未完成的删除
-      try{
-        const res=await removeFromCloud(raw);
-        if(res==='gone'){toast('该条已被其他设备取走，已自动跳到下一条 ✓','ok');}
-        else if(res===true){toast('已复制并从云端删除 ✓ 剩余'+displayPool().length+'条','ok');}
-        else{toast('已复制（本机已记录，云端删除失败，请检查 Token）','er');}
-      }catch(e){toast('云端同步异常：'+e.message,'er');}
-      finally{cloudWriting=false;}
-    }else{
-      toast('已复制并标记已用 ✓（回退模式未配置 Token，云端未删除）','ok');
-    }
-    showContent();
+    toast('云端暂不可用，请稍后重试','er');
   }
 }
 async function delCur(){
@@ -1019,14 +1000,15 @@ async function clearPool(){
     const n=await fbClearPending();
     cloudPool=[];viewOrder=[];cloudIdx=0;savePool([]);saveIdx(0);
     await fbRefresh();
-    toast('已清空待领取内容 '+n+' 条 ✓','in');
-    return;
+    toast('已清空 ✓','in');
+  }else{
+    toast('云端暂不可用，请稍后重试','er');
   }
-  cloudPool=[];savePool([]);saveIdx(0);updateUI();const ok=await ghPutPool([]);cloudLoaded=true;if(ok)toast('已清空 ✓','in');else toast('已清空本地，云端同步失败','er')}
-function cleanPool(){const pool=loadPool();if(!pool.length){toast('缓存为空','in');return;}const cleaned=pool.map(item=>cleanText(item)).filter(s=>s.length>20);savePool(cleaned);toast('已清理 '+pool.length+'→'+cleaned.length+' 条','ok');updateUI();}
+}
+function cleanPool(){const pool=loadPool();if(!pool.length){toast('缓存为空','in');return;}const cleaned=pool.map(item=>cleanText(item)).filter(s=>s.length>20);savePool(cleaned);toast('已清理 ✓','ok');updateUI();}
 
 // ==================== UI ====================
-function updateUI(){const admin=isAdmin();const pool=admin?fbAdminPool():displayPool();const used=loadUsed();document.getElementById('st-pool-n').textContent=pool.length;document.getElementById('st-used-n').textContent=used;const c=document.getElementById('st-pool');pool.length===0?c.classList.add('warn'):c.classList.remove('warn');document.getElementById('st-status-n').textContent=admin?('管理端('+(fbMode?'Firebase':'云端')+')'):(fbMode?'Firebase':(cloudLoaded?'云端':'加载中'));showContent()}
+function updateUI(){const admin=isAdmin();const pool=admin?fbAdminPool():displayPool();const used=loadUsed();document.getElementById('st-pool-n').textContent=pool.length;document.getElementById('st-used-n').textContent=used;const c=document.getElementById('st-pool');pool.length===0?c.classList.add('warn'):c.classList.remove('warn');document.getElementById('st-status-n').textContent=admin?'管理端':(fbMode===true?'云端':(fbMode===false?'离线':'连接中'));showContent()}
 
 // ==================== 初始化 ====================
 document.addEventListener('DOMContentLoaded',()=>{
